@@ -1,0 +1,42 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pipeline-scan
+  namespace: registry
+spec:
+  schedule: "0 */6 * * *"          # every 6h — as-warranted cadence
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: trivy
+              image: docker.io/aquasec/trivy:0.58.2
+              command: ["sh", "-c"]
+              args:
+                - |
+                  set -e
+                  mkdir -p /data/scans /data/trivy-cache
+                  for TAG in v1 v2; do
+                    trivy image \
+                      --db-repository=public.ecr.aws/aquasecurity/trivy-db \
+                      --cache-dir /data/trivy-cache \
+                      --insecure --scanners=vuln --severity=HIGH,CRITICAL \
+                      --format=json \
+                      --output=/data/scans/patch-demo-$TAG.json \
+                      registry.registry.svc:5000/patch-demo:$TAG
+                  done
+                  echo "scans complete $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+              env:
+                - {name: TRIVY_CACHE_DIR, value: /data/trivy-cache}
+              resources:
+                requests: {cpu: 500m, memory: 512Mi}
+                limits: {memory: 1500Mi}
+              volumeMounts:
+                - {name: data, mountPath: /data}
+          volumes:
+            - name: data
+              persistentVolumeClaim: {claimName: registry-data}

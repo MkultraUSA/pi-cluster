@@ -1,56 +1,11 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: pipeline-page
+  name: page-server
   namespace: registry
 data:
-  index.html: |
-    <!DOCTYPE html>
-    <html><head><meta charset="utf-8"><title>Pi Cluster — Patch Pipeline</title>
-    <style>
-      body{font-family:system-ui,sans-serif;margin:2rem;background:#0d1117;color:#e6edf3}
-      h1{color:#58a6ff} h2{color:#7ee787;margin-top:1.5rem}
-      table{border-collapse:collapse;margin:.5rem 0}
-      td,th{border:1px solid #30363d;padding:.4rem .8rem;text-align:left}
-      th{background:#161b22} .ok{color:#3fb950}.warn{color:#d29922}.bad{color:#f85149}
-      .meta{color:#8b949e;font-size:.85rem}
-    </style></head><body>
-    <h1>Pi Cluster — Self-Patching Image Pipeline</h1>
-    <p class="meta">LAN-only status page · generated 2026-11-01 · pipeline: advisory → scan → rebuild → replace → evidence (M4 Track B)</p>
-
-    <h2>Images in registry (registry.cluster1:30500)</h2>
-    <table>
-      <tr><th>Image</th><th>Digest</th><th>Built (UTC)</th><th>Stage</th><th>Debian</th></tr>
-      <tr><td>patch-demo:v1</td><td class="meta">sha256:fca195c1…</td><td>2026-11-01T14:27:39Z</td><td>v1-plain-base</td><td>12.15 (bookworm)</td></tr>
-      <tr><td>patch-demo:v2</td><td class="meta">sha256:a61144ba…</td><td>2026-11-01T14:5x</td><td>v2-security-patched</td><td>12.15 (bookworm)</td></tr>
-    </table>
-
-    <h2>Advisory scan (trivy 0.58.2, DB via public.ecr.aws mirror)</h2>
-    <table>
-      <tr><th>Image</th><th>HIGH+CRITICAL</th><th>Fixable upstream</th><th>Verdict</th></tr>
-      <tr><td>patch-demo:v1</td><td class="bad">55</td><td class="warn">0</td><td class="warn">UNPATCHABLE-UPSTREAM — track &amp; mitigate; rebuild re-fires when Debian ships fixes</td></tr>
-      <tr><td>patch-demo:v2</td><td class="bad">55</td><td class="warn">0</td><td class="warn">same — apt upgrade found only tzdata; base already current</td></tr>
-    </table>
-    <p class="meta">Top offenders (all awaiting upstream fixes): CVE-2026-53613/53615/76642/78408/78410 (bsdutils), CVE-2026-41992 (gzip), CVE-2026-54369 (libacl1) …</p>
-
-    <h2>What the system uses to design the image</h2>
-    <table>
-      <tr><th>Input</th><th>Source</th><th>Current value</th></tr>
-      <tr><td>Base image</td><td>Dockerfile FROM</td><td>python:3.11-slim-bookworm (digest-pinned at build)</td></tr>
-      <tr><td>CVE intelligence</td><td>trivy DB (auto-updated, ECR mirror)</td><td>fresh download each scan job (131 MB)</td></tr>
-      <tr><td>Security fixes</td><td>deb.debian.org/debian-security (bookworm-security)</td><td>apt -y upgrade at build → tzdata 2026f-0+deb12u1 (only pkg newer than base)</td></tr>
-      <tr><td>Build engine</td><td>kaniko v1.23.2 Job (in-cluster, arm64)</td><td>no workstation or node changes needed to build</td></tr>
-      <tr><td>Builder node</td><td>k8s scheduler (any node — M1 goal)</td><td>last builds: whichever node the scheduler chose</td></tr>
-    </table>
-
-    <h2>Replace leg (canary discipline)</h2>
-    <table>
-      <tr><th>Node</th><th>registries.yaml</th><th>Pull verified</th></tr>
-      <tr><td>cluster2 (canary)</td><td class="ok">live</td><td class="ok">yes — canary-pull pod ran v1 from registry</td></tr>
-      <tr><td>cluster1 / cluster3 / cluster4</td><td class="warn">pending OK</td><td class="warn">—</td></tr>
-    </table>
-    <p class="meta">Evidence trail: scan-v1-raw.log + STATE.md (pi-cluster vault) · next drill: when Debian ships fixes for the 55, the same scan flips entries to FIXABLE → rebuild → canary rollout → fleet → Grafana "patch pipeline" row.</p>
-    </body></html>
+  page-server.py: |
+    (placeholder — applied from file by kubectl)
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -64,25 +19,20 @@ spec:
     metadata:
       labels: {app: pipeline-page}
     spec:
+      nodeSelector: {kubernetes.io/hostname: cluster1}   # PVC locality (local-path)
       containers:
-        - name: nginx
-          image: nginx:1.27-alpine
+        - name: page
+          image: python:3.11-slim-bookworm
+          command: ["python3", "/page/page-server.py"]
           ports: [{containerPort: 80}]
-          volumeMounts: [{name: page, mountPath: /usr/share/nginx/html}]
           resources:
             requests: {cpu: 10m, memory: 32Mi}
             limits: {memory: 64Mi}
+          volumeMounts:
+            - {name: script, mountPath: /page}
+            - {name: data, mountPath: /data, readOnly: true}
       volumes:
-        - name: page
-          configMap: {name: pipeline-page}
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: pipeline-page
-  namespace: registry
-spec:
-  selector: {app: pipeline-page}
-  ports:
-    - {port: 80, nodePort: 30800, name: http}
-  type: NodePort
+        - name: script
+          configMap: {name: page-server}
+        - name: data
+          persistentVolumeClaim: {claimName: registry-data}
