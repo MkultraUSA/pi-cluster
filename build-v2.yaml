@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: patch-demo-dockerfile-v2
+  namespace: registry
+data:
+  Dockerfile: |
+    FROM python:3.11-slim-bookworm
+    # The security fix layer: pull ALL Debian security updates at build time
+    RUN apt-get update && \
+        DEBIAN_FRONTEND=noninteractive apt-get -y upgrade && \
+        rm -rf /var/lib/apt/lists/*
+    RUN mkdir -p /app && echo -n "v2-security-patched" > /app/BUILD_STAGE && date -u +%Y-%m-%dT%H:%M:%SZ > /app/BUILT_AT
+    CMD ["python3", "-m", "http.server", "8000", "--directory", "/app"]
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kaniko-build-v2
+  namespace: registry
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: kaniko
+          image: gcr.io/kaniko-project/executor:v1.23.2
+          args:
+            - --dockerfile=/workspace/Dockerfile
+            - --context=/workspace
+            - --destination=registry.registry.svc:5000/patch-demo:v2
+            - --insecure
+            - --snapshot-mode=redo
+            - --cache=false
+          resources:
+            requests: {cpu: 500m, memory: 512Mi}
+            limits: {memory: 1200Mi}
+          volumeMounts:
+            - {name: dockerfile, mountPath: /workspace}
+      volumes:
+        - name: dockerfile
+          configMap: {name: patch-demo-dockerfile-v2}

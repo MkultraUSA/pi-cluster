@@ -1,0 +1,31 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: trivy-scan-v1
+  namespace: registry
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: trivy
+          image: docker.io/aquasec/trivy:0.58.2
+          args:
+            - image
+            - --db-repository=public.ecr.aws/aquasecurity/trivy-db
+            - --java-db-repository=public.ecr.aws/aquasecurity/trivy-java-db
+            - --insecure
+            - --scanners=vuln
+            - --severity=HIGH,CRITICAL
+            - --format=json
+            - registry.registry.svc:5000/patch-demo:v1
+          resources:
+            requests: {cpu: 500m, memory: 512Mi}
+            limits: {memory: 1500Mi}
+          env:
+            - {name: TRIVY_CACHE_DIR, value: /tmp/trivy}
+          volumeMounts: [{name: scratch, mountPath: /tmp/trivy}]
+      volumes:
+        - name: scratch
+          emptyDir: {}
