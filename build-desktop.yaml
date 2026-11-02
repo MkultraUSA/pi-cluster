@@ -1,0 +1,58 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pi-desktop-dockerfile
+  namespace: registry
+data:
+  Dockerfile: |
+    FROM debian:bookworm-slim
+    # M4 security-fix layer: all Debian security updates baked at build
+    RUN apt-get update && \
+        DEBIAN_FRONTEND=noninteractive apt-get -y upgrade && \
+        DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+          xfce4 xfce4-terminal dbus-x11 tigervnc-standalone-server tigervnc-common novnc websockify \
+          firefox-esr unattended-upgrades fonts-dejavu adwaita-icon-theme \
+          locales && \
+        rm -rf /var/lib/apt/lists/* && \
+        useradd -m -s /bin/bash -u 1000 deskuser && \
+        mkdir -p /home/deskuser/.vnc && chown -R deskuser /home/deskuser
+    ARG START_SCRIPT
+    RUN echo "$START_SCRIPT" | sed -e 's/^"//' -e 's/"[[:space:]]*$//' > /usr/local/bin/start.sh && \
+        chmod +x /usr/local/bin/start.sh && \
+        chown deskuser:deskuser /usr/local/bin/start.sh
+    USER deskuser
+    WORKDIR /home/deskuser
+    EXPOSE 6080
+    CMD ["/usr/local/bin/start.sh"]
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kaniko-build-desktop
+  namespace: registry
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      restartPolicy: Never
+      nodeSelector: {kubernetes.io/hostname: cluster3}
+      containers:
+        - name: kaniko
+          image: gcr.io/kaniko-project/executor:v1.23.2
+          args:
+            - --dockerfile=/workspace/Dockerfile
+            - --context=dir:///workspace
+            - --destination=registry.registry.svc:5000/pi-desktop:v4
+            - --build-arg=START_SCRIPT="#!/bin/bash\nexport HOME=/home/deskuser\nmkdir -p $HOME/.vnc\ntigervncserver :0 -geometry 1600x900 -depth 24 -localhost yes -SecurityTypes None -xstartup /usr/bin/startxfce4 -fg > $HOME/.vnc/server.log 2>&1 &\nwebsockify --web /usr/share/novnc 6080 localhost:5900 > $HOME/.vnc/novnc.log 2>&1 &\nwait\n"
+            - --insecure
+            - --snapshot-mode=full
+            - --cache=true
+            - --cache-repo=registry.registry.svc:5000/kaniko-cache
+          resources:
+            requests: {cpu: 1000m, memory: 1Gi}
+            limits: {memory: 3Gi}
+          volumeMounts:
+            - {name: df, mountPath: /workspace}
+      volumes:
+        - name: df
+          configMap: {name: pi-desktop-dockerfile}

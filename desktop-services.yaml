@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: desktop-0-svc
+  namespace: desktop
+spec:
+  selector:
+    app: desktop
+    statefulset.kubernetes.io/pod-name: desktop-0
+  ports:
+    - {port: 80, targetPort: 6080, nodePort: 30900, name: novnc}
+  type: NodePort
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: desktop-1-svc
+  namespace: desktop
+spec:
+  selector:
+    app: desktop
+    statefulset.kubernetes.io/pod-name: desktop-1
+  ports:
+    - {port: 80, targetPort: 6080, nodePort: 30901, name: novnc}
+  type: NodePort
