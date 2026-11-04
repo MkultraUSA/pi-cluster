@@ -64,7 +64,8 @@ def inventory():
 
 def ask(model, prompt):
     if model == "claude":
-        r = run(["claude", "-p", "--allowedTools", "", prompt], timeout=300)
+        # prompt via stdin: argv empty-string args confuse the -p parser
+        r = run(["claude", "-p", "--allowedTools", "none"], timeout=300, input_text=prompt)
     elif model == "gemini":
         r = run(["gemini", "-p", prompt], timeout=300)
     elif model == "codex":
