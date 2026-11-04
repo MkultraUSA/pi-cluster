@@ -89,6 +89,7 @@ def ask(model, prompt):
 def main():
     case_study = "--case-study" in sys.argv
     kev = read_pvc("/data/kev-state.json")
+    inbox = read_pvc("/data/agent-inbox.json")
     playbook_path = PLAYBOOK
     playbook = open(playbook_path).read() if os.path.exists(playbook_path) else "(empty)"
     task = ("Case study: record the PHP2Shell incident (CVE-2026-109618 / CVE-2026-109619) "
@@ -104,6 +105,9 @@ def main():
         "short reasoning suitable for an evidence record.\n\n"
         f"=== PLAYBOOK ===\n{playbook[-4000:]}\n\n=== TASK ===\n{task}\n\n"
         f"=== CURRENT STATE ===\nKEV: {kev[:1200] or 'no match recorded'}\n\n"
+        f"=== NOVEL EVENTS (unfamiliar — adapt, then write the standing rule "
+        f"into the playbook so tier-1 handles it next time) ===\n"
+        f"{inbox[:1200] or 'none'}\n\n"
         f"=== RUNNING WORKLOADS ===\n{inventory()}\n")
     for model in ("claude", "gemini", "codex", "opencode"):
         LOG(f"asking {model}...")

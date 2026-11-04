@@ -52,6 +52,7 @@ def main():
     state = json.load(open(STATE)) if os.path.exists(STATE) else {"dateReleased": None}
     if state.get("dateReleased") == released:
         LOG(f"KEV unchanged ({released}, {total} entries) — no action")
+        surface_snapshot()
         return
     LOG(f"KEV feed changed: {released} ({total} entries)")
     tag = deployed_tag()
@@ -70,7 +71,7 @@ def main():
     if not hits:
         json.dump({"dateReleased": released, "last_checked": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                    "matched": []}, open(STATE, "w"), indent=2)
-        return
+    surface_snapshot()
     # fire the actuator immediately, carrying the priority CVEs
     cron = k8s("GET", f"/apis/batch/v1/namespaces/{NS}/cronjobs/patch-actuator")
     job = {
@@ -85,6 +86,63 @@ def main():
     LOG(f"ACTUATOR FIRED (KEV): {sorted(hits)}")
     json.dump({"dateReleased": released, "last_checked": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                "matched": sorted(hits), "actuator_fired": True}, open(STATE, "w"), indent=2)
+
+
+def surface_snapshot():
+    """Novelty detection: anything that changed and isn't explained by a
+    tier-1 rule goes to the agent inbox. The agent adapts, writes the
+    standing rule into its playbook, and next time tier-1 handles it."""
+    try:
+        cat = json.loads(urllib.request.urlopen(
+            "http://registry.registry.svc:5000/v2/_catalog", timeout=15).read())
+        repos = cat.get("repositories", [])
+        tags = {}
+        for repo in repos:
+            try:
+                t = json.loads(urllib.request.urlopen(
+                    f"http://registry.registry.svc:5000/v2/{repo}/tags/list", timeout=15).read())
+                tags[repo] = sorted(t.get("tags") or [])
+            except Exception:
+                pass
+    except Exception as e:
+        LOG(f"catalog unreachable: {e}")
+        return
+    dep = k8s("GET", f"/apis/apps/v1/namespaces/{NS}/deployments/{IMAGE}")
+    workloads = {dep["metadata"]["name"]: dep["spec"]["template"]["spec"]["containers"][0]["image"]}
+    snap = {"catalog": tags, "workloads": workloads,
+            "when": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+    prev_path = "/data/surface-state.json"
+    prev = json.load(open(prev_path)) if os.path.exists(prev_path) else None
+    json.dump(snap, open(prev_path, "w"), indent=2)
+    if prev is None:
+        LOG("surface snapshot seeded"); return
+    novel = []
+    for repo, tl in tags.items():
+        known = set(prev.get("catalog", {}).get(repo, []))
+        new_tags = sorted(set(tl) - known)
+        if new_tags:
+            novel.append(f"new image tags in registry: {repo}:{','.join(new_tags)}")
+    for repo in prev.get("catalog", {}):
+        if repo not in tags:
+            novel.append(f"registry repo vanished: {repo}")
+    for name, img in workloads.items():
+        if prev.get("workloads", {}).get(name) != img:
+            novel.append(f"workload changed: {name} now {img}")
+    for name in prev.get("workloads", {}):
+        if name not in workloads:
+            novel.append(f"workload gone: {name}")
+    if not novel:
+        return
+    inbox = []
+    if os.path.exists("/data/agent-inbox.json"):
+        try:
+            inbox = json.load(open("/data/agent-inbox.json"))
+        except Exception:
+            inbox = []
+    for n in novel:
+        inbox.append({"when": snap["when"], "event": n})
+    json.dump(inbox[-20:], open("/data/agent-inbox.json", "w"), indent=2)
+    LOG(f"NOVEL: {novel} — written to agent inbox")
 
 
 if __name__ == "__main__":

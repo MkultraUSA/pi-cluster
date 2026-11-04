@@ -74,7 +74,7 @@ def current_tag():
 def rebuild(new_tag):
     """Rebuild the image with today's Debian security fixes under a new tag."""
     tag_cm = f"patch-demo-dockerfile-{new_tag}"
-    dockerfile = open(f"{REPO_DIR}/infrastructure/patch-pipeline/recipes/build-v1.yaml").read()
+    dockerfile = open(f"{REPO_DIR}/infrastructure/patch-pipeline/recipes/build-v2.yaml").read()
     # The recipe's ConfigMap carries the Dockerfile; reuse it verbatim, only the
     # name changes, and BUILD_STAGE records which scan triggered the rebuild.
     body = dockerfile.split("Dockerfile: |", 1)[1].split("---", 1)[0]
@@ -140,12 +140,18 @@ def bump_git(old_tag, new_tag):
     LOG(f"git bump pushed: {old_tag} -> {new_tag}")
 
 
+RECIPE_VERSION = "2-security-upgrade"
+
+
 def already_rebuilt(tag):
-    """True if tag itself came from one of our rebuilds. Rebuilding our own
-    output again with no upstream change is the identical-doomed-call trap."""
+    """True if tag came from one of OUR rebuilds with the CURRENT recipe.
+    Rebuilding our own output with an unchanged recipe is the
+    identical-doomed-call trap. A recipe change (like adding the apt
+    upgrade) is a real change and must be allowed through."""
     for path in glob.glob(f"{EVIDENCE_DIR}/*.json"):
         with open(path) as f:
-            if json.load(f).get("new_tag") == tag:
+            e = json.load(f)
+            if e.get("new_tag") == tag and e.get("recipe_version") == RECIPE_VERSION:
                 return True
     return False
 
@@ -181,6 +187,7 @@ def main():
         "scan_file": os.path.basename(scan_file) if scan_file else None,
         "fixable_count": len(fixable),
         "fixable_cves": sorted({v["VulnerabilityID"] for v in fixable})[:25],
+        "recipe_version": RECIPE_VERSION,
         "priority_cves": priority,
         "kev_driven": any(c in priority for c in [v["VulnerabilityID"] for v in fixable]),
         "forced_drill": FORCE and not fixable,
