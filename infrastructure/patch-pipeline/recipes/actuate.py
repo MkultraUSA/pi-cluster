@@ -71,14 +71,31 @@ def current_tag():
     raise SystemExit("current tag not found in deployment.yaml")
 
 
+RECIPE_VERSION = "4-vendored-setuptools"
+
+
+def rebuild_dockerfile(stage):
+    """Recipe v3: Debian security fixes AND pip-level fixes. Recipe v2's apt
+    upgrade cleared nothing measurable — the two fixable CVEs (wheel,
+    jaraco.context) live in python packaging tools that ship in the base
+    image. Bump RECIPE_VERSION when this changes so the guard re-fires."""
+    return (
+        "FROM python:3.11-slim-bookworm\n"
+        "ARG BUILD_STAGE=unknown\n"
+        "RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get -y upgrade && rm -rf /var/lib/apt/lists/*\n"
+        "# recipe v4: the CVEs that survived v2/v3 were VENDORED inside\n"
+        "# setuptools (setuptools/_vendor/) — upgrading wheel/jaraco.context\n"
+        "# alone leaves those copies behind. Upgrade setuptools with them.\n"
+        "RUN pip install --no-cache-dir --upgrade pip setuptools wheel jaraco.context\n"
+        'RUN mkdir -p /app && echo -n "$BUILD_STAGE" > /app/BUILD_STAGE && date -u +%Y-%m-%dT%H:%M:%SZ > /app/BUILT_AT\n'
+        'CMD ["python3", "-m", "http.server", "8000", "--directory", "/app"]\n'
+    )
+
+
 def rebuild(new_tag):
-    """Rebuild the image with today's Debian security fixes under a new tag."""
+    """Rebuild the image with today's security fixes under a new tag."""
     tag_cm = f"patch-demo-dockerfile-{new_tag}"
-    dockerfile = open(f"{REPO_DIR}/infrastructure/patch-pipeline/recipes/build-v2.yaml").read()
-    # The recipe's ConfigMap carries the Dockerfile; reuse it verbatim, only the
-    # name changes, and BUILD_STAGE records which scan triggered the rebuild.
-    body = dockerfile.split("Dockerfile: |", 1)[1].split("---", 1)[0]
-    body = "\n".join(l[4:] if l.startswith("    ") else l for l in body.split("\n")).strip("\n") + "\n"
+    body = rebuild_dockerfile(f"{new_tag}-security-rebuild")
     cm_body = {
         "apiVersion": "v1", "kind": "ConfigMap",
         "metadata": {"name": tag_cm, "namespace": NS},
@@ -97,7 +114,7 @@ def rebuild(new_tag):
                     "--dockerfile=/workspace/Dockerfile", "--context=/workspace",
                     f"--build-arg=BUILD_STAGE={new_tag}-security-rebuild",
                     f"--destination={REGISTRY}/{IMAGE}:{new_tag}",
-                    "--insecure", "--insecure-pull", "--snapshot-mode=redo", "--cache=false",
+                    "--insecure", "--insecure-pull", "--snapshot-mode=full", "--cache=false",
                 ],
                 "resources": {"requests": {"cpu": "500m", "memory": "512Mi"},
                               "limits": {"memory": "1200Mi"}},
@@ -140,7 +157,6 @@ def bump_git(old_tag, new_tag):
     LOG(f"git bump pushed: {old_tag} -> {new_tag}")
 
 
-RECIPE_VERSION = "2-security-upgrade"
 
 
 def already_rebuilt(tag):
