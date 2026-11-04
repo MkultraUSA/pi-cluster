@@ -1,0 +1,34 @@
+# patch-publisher: renders the PUBLIC status page and pushes it to the
+# gh-pages branch of github.com/MkultraUSA/pi-cluster-status. Zero k8s RBAC
+# (default SA): it reads the PVC volume and pushes over ssh — that is the
+# whole of its power. Runs 15 min after each scan; the actuator's evidence
+# lands in the next render (or immediately via a manual run).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: patch-publisher
+  namespace: registry
+spec:
+  schedule: "15 */6 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: publish
+              image: 192.168.86.188:30500/actuator:v1
+              imagePullPolicy: Always
+              command: ["python3", "/actuator/publish.py"]
+              volumeMounts:
+                - {name: data, mountPath: /data}
+                - {name: status-key, mountPath: /status-git-key, readOnly: true}
+          volumes:
+            - name: data
+              persistentVolumeClaim: {claimName: registry-data}
+            - name: status-key
+              secret: {secretName: patch-publisher-git-key, defaultMode: 384}

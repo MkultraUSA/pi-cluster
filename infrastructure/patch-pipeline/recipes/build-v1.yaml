@@ -22,7 +22,7 @@ spec:
       restartPolicy: Never
       containers:
         - name: kaniko
-          image: ghcr.io/kaniko-project/executor:v1.23.2
+          image: gcr.io/kaniko-project/executor:v1.23.2
           args:
             - --dockerfile=/workspace/Dockerfile
             - --context=/workspace

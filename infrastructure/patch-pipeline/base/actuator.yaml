@@ -1,0 +1,72 @@
+# patch-actuator: closes the self-patching loop (scan verdict -> rebuild ->
+# git tag bump -> ArgoCD rollout -> evidence). Least privilege: the SA can
+# create build Jobs and read scans — it has NO permission to touch
+# Deployments. The only path to production is a git commit.
+# The script is baked into the actuator image (recipes/build-actuator.yaml).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: patch-actuator
+  namespace: registry
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: patch-actuator
+  namespace: registry
+rules:
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["create", "get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["create", "get"]
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: patch-actuator
+  namespace: registry
+subjects:
+  - kind: ServiceAccount
+    name: patch-actuator
+    namespace: registry
+roleRef:
+  kind: Role
+  name: patch-actuator
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: patch-actuator
+  namespace: registry
+spec:
+  # 45 min after each 6h scan (scan: 0 */6 * * *): fresh DB, verdict in,
+  # act only on fixable findings.
+  schedule: "45 */6 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        spec:
+          serviceAccountName: patch-actuator
+          restartPolicy: Never
+          containers:
+            - name: actuate
+              image: 192.168.86.188:30500/actuator:v1
+              imagePullPolicy: Always
+              volumeMounts:
+                - {name: data, mountPath: /data}
+                - {name: git-key, mountPath: /git-key, readOnly: true}
+          volumes:
+            - name: data
+              persistentVolumeClaim: {claimName: registry-data}
+            - name: git-key
+              secret: {secretName: patch-actuator-git-key, defaultMode: 384}

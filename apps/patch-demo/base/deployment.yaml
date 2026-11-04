@@ -1,0 +1,42 @@
+# The pipeline's reference workload: something real that the self-patch
+# loop can rebuild and replace. Image tag is bumped by the patch-actuator
+# via git commit — ArgoCD rolls it out; humans never patch the cluster by hand.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: patch-demo
+  namespace: registry
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: patch-demo
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 0   # readiness-gated, pod-by-pod replacement
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: patch-demo
+    spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: patch-demo
+      containers:
+        - name: patch-demo
+          image: 192.168.86.188:30500/patch-demo:v2
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+          readinessProbe:
+            httpGet: {path: /, port: 8000}
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          resources:
+            requests: {cpu: 50m, memory: 64Mi}
+            limits: {memory: 128Mi}

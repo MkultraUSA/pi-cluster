@@ -3,3 +3,5 @@ kind: Kustomization
 resources:
   - scan-cronjob.yaml
   - status-page.yaml
+  - actuator.yaml
+  - publisher.yaml
