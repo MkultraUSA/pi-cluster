@@ -64,8 +64,14 @@ def inventory():
 
 def ask(model, prompt):
     if model == "claude":
-        # prompt via stdin: argv empty-string args confuse the -p parser
-        r = run(["claude", "-p", "--allowedTools", "none"], timeout=300, input_text=prompt)
+        # prompt via stdin: argv empty-string args confuse the -p parser;
+        # token from setup-token (valid 1 year) — never printed, file is 0600
+        env = dict(os.environ)
+        env["CLAUDE_CODE_OAUTH_TOKEN"] = open(os.path.expanduser(
+            "~/.config/claude-oauth-token")).read().strip()
+        r = subprocess.run(["claude", "-p", "--allowedTools", "none"],
+                           capture_output=True, text=True, timeout=300,
+                           input=prompt, env=env)
     elif model == "gemini":
         r = run(["gemini", "-p", prompt], timeout=300)
     elif model == "codex":
