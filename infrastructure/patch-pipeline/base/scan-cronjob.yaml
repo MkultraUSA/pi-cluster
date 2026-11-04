@@ -22,7 +22,13 @@ spec:
                 - |
                   set -e
                   mkdir -p /data/scans /data/trivy-cache
-                  for TAG in v1 v2; do
+                  # Dynamic tag list from the registry catalog — a hardcoded
+                  # loop went stale the first time the actuator minted a new
+                  # tag (2026-11-04: deployed v20261104-1845 was never scanned).
+                  TAGS=$(wget -qO- registry.registry.svc:5000/v2/patch-demo/tags/list \
+                    | tr ',' '\n' | tr -d '[]{}"' | grep -o 'v[0-9A-Za-z_.-]*' | sort -u)
+                  echo "scanning tags: $TAGS"
+                  for TAG in $TAGS; do
                     trivy image \
                       --db-repository=public.ecr.aws/aquasecurity/trivy-db \
                       --cache-dir /data/trivy-cache \
