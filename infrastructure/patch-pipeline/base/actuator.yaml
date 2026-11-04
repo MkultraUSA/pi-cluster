@@ -24,6 +24,9 @@ rules:
   - apiGroups: [""]
     resources: ["pods", "pods/log"]
     verbs: ["get", "list"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -45,9 +48,9 @@ metadata:
   name: patch-actuator
   namespace: registry
 spec:
-  # 45 min after each 6h scan (scan: 0 */6 * * *): fresh DB, verdict in,
-  # act only on fixable findings.
-  schedule: "45 */6 * * *"
+  # Hourly, 15 min after the hourly scan; the rebuild guard makes repeated
+  # runs idempotent (deployed tag is our own rebuild -> no action).
+  schedule: "15 * * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 3
@@ -70,3 +73,34 @@ spec:
               persistentVolumeClaim: {claimName: registry-data}
             - name: git-key
               secret: {secretName: patch-actuator-git-key, defaultMode: 384}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: kev-poll
+  namespace: registry
+spec:
+  # PHP2Shell lesson: exploitation ran BEFORE disclosure and went broad
+  # within hours of the patch. The KEV feed is the fast signal; 15-min poll
+  # costs nothing (plain HTTP, no AI). A match fires the actuator directly.
+  schedule: "*/15 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        spec:
+          serviceAccountName: patch-actuator
+          restartPolicy: Never
+          containers:
+            - name: kev-poll
+              image: 192.168.86.188:30500/actuator:v1
+              imagePullPolicy: Always
+              command: ["python3", "/actuator/kev-poll.py"]
+              volumeMounts:
+                - {name: data, mountPath: /data}
+          volumes:
+            - name: data
+              persistentVolumeClaim: {claimName: registry-data}

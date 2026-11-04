@@ -1,0 +1,41 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kaniko-build-actuator
+  namespace: registry
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      restartPolicy: Never
+      initContainers:
+        # configMapGenerator-style mounts render files as symlinks to ..data/;
+        # kaniko COPY preserves symlinks, producing a broken image.
+        # Dereference to real files in an emptyDir first.
+        - name: deref-context
+          image: docker.io/library/busybox:1.36
+          command: ["sh", "-c", "cp -L /cm/* /ws/ && ls -la /ws/"]
+          volumeMounts:
+            - {name: cm-files, mountPath: /cm}
+            - {name: workspace, mountPath: /ws}
+      containers:
+        - name: kaniko
+          image: gcr.io/kaniko-project/executor:v1.23.2
+          args:
+            - --dockerfile=/workspace/Dockerfile
+            - --context=/workspace
+            - --destination=registry.registry.svc:5000/actuator:v1
+            - --insecure
+            - --insecure-pull
+            - --snapshot-mode=redo
+            - --cache=false
+          resources:
+            requests: {cpu: 500m, memory: 512Mi}
+            limits: {memory: 1200Mi}
+          volumeMounts:
+            - {name: workspace, mountPath: /workspace}
+      volumes:
+        - name: cm-files
+          configMap: {name: actuator-build-files}
+        - name: workspace
+          emptyDir: {}

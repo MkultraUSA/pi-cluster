@@ -9,7 +9,7 @@ metadata:
   name: patch-publisher
   namespace: registry
 spec:
-  schedule: "15 */6 * * *"
+  schedule: "30 * * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 3

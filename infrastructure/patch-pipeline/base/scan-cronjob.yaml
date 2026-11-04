@@ -4,7 +4,9 @@ metadata:
   name: pipeline-scan
   namespace: registry
 spec:
-  schedule: "0 */6 * * *"          # every 6h — as-warranted cadence
+  # Hourly (PHP2Shell lesson: exploitation went broad within hours of patch;
+  # the verdict chain must be <=1h, not <=12h).
+  schedule: "0 * * * *"          # every 6h — as-warranted cadence
   concurrencyPolicy: Forbid
   jobTemplate:
     spec:
