@@ -1,0 +1,50 @@
+# pi-cluster — M1-2 acceptance canary: shared NFS PVC across two scheduler-placed pods
+# Uses StorageClass `nfs` (provisioner nfs-prov, exports cluster4:/srv/bbpool1).
+# Two replicas, no nodeSelector: each lands by scheduler preference, both mount the
+# same RWX PVC. PASS = write from pod A, read from pod B (different node).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nfs-canary
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: shared-canary
+  namespace: nfs-canary
+spec:
+  storageClassName: nfs
+  accessModes: ["ReadWriteMany"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: canary
+  namespace: nfs-canary
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: canary }
+  template:
+    metadata:
+      labels: { app: canary }
+    spec:
+      affinity:
+        podAntiAffinity:   # not required, but they should land on different nodes for the test
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels: { app: canary }
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - name: canary
+          image: alpine:3.19
+          command: ["sh", "-c", "tail -f /dev/null"]
+          volumeMounts:
+            - { name: data, mountPath: /data }
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: shared-canary

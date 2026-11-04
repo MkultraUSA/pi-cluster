@@ -1,0 +1,19 @@
+# pi-cluster — NetworkPolicy locking the desktop fleet to the Guacamole gateway
+# 2026-11-02, task 2. All ingress to app=desktop pods is DENIED except TCP 5900
+# from pods in namespace desktop-gate (guacd). The noVNC/6080 path is intentionally
+# unreachable: NodePorts 30900/30901 were demoted to ClusterIP when this landed.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: desktop-locked
+  namespace: desktop
+spec:
+  podSelector:
+    matchLabels: {app: desktop}
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: desktop-gate}
+      ports:
+        - {protocol: TCP, port: 5900}

@@ -1,0 +1,97 @@
+# pi-cluster — Corporate-closeness item 1: gateway behind k3s Traefik on :443 with a real cert
+# 2026-11-03. cert-manager (ns cert-manager, cluster3) holds a self-signed lab root CA;
+# the gateway leaf cert carries the hostname AND all four node-IP SANs so it works
+# before/without Pi-hole DNS entries. Traefik serves it from entrypoint websecure
+# (:443 on every node via Klipper LB). HTTP :80 redirects permanently.
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned-bootstrap
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: lab-root-ca
+  namespace: cert-manager
+spec:
+  secretName: lab-root-ca
+  privateKey:
+    rotationPolicy: Never   # root must not rotate under lightly-managed trust
+  issuerRef:
+    name: selfsigned-bootstrap
+    kind: ClusterIssuer
+  commonName: pi-cluster Lab Root CA
+  duration: 87600h           # 10y
+  isCA: true
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: pi-cluster-lab-ca
+spec:
+  ca:
+    secretName: lab-root-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: gateway-cert
+  namespace: desktop-gate
+spec:
+  secretName: gateway-tls
+  issuerRef:
+    name: pi-cluster-lab-ca
+    kind: ClusterIssuer
+  duration: 8760h            # 1y leaf, renewed两个月 early by cert-manager
+  renewBefore: 720h          # cert-manager renews 30 d early; the "no cert shock" rule
+  dnsNames:
+    - gateway.pi-cluster.lan
+  ipAddresses:               # works from plain IPs while DNS is Kevin-side
+    - 192.168.86.188
+    - 192.168.86.132
+    - 192.168.86.251
+    - 192.168.86.128
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: https-redirect
+  namespace: desktop-gate
+spec:
+  redirectScheme:
+    scheme: https
+    permanent: true
+    port: "443"
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: guacamole-http
+  namespace: desktop-gate
+spec:
+  entryPoints: [web]
+  routes:
+    - match: Host(`gateway.pi-cluster.lan`)
+      middlewares:
+        - name: https-redirect
+      kind: Rule
+      services:
+        - {name: guacamole, port: 8080, namespace: desktop-gate}  # never reached; the middleware redirects first (Traefik CRD requires a service on every rule)
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: guacamole-https
+  namespace: desktop-gate
+spec:
+  entryPoints: [websecure]
+  routes:
+    - match: Host(`gateway.pi-cluster.lan`)
+      kind: Rule
+      services:
+        - {name: guacamole, port: 8080, namespace: desktop-gate}
+  tls:
+    secretName: gateway-tls

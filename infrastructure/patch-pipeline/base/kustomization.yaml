@@ -1,0 +1,9 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - build-desktop.yaml
+  - build-v1.yaml
+  - build-v2.yaml
+  - scan-cronjob.yaml
+  - scan-v1.yaml
+  - status-page.yaml

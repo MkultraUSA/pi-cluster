@@ -1,0 +1,275 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: alloy-cloud-token
+  namespace: monitoring
+type: Opaque
+stringData:
+  token: "glc_eyJvIjoiOTYzMjI4IiwibiI6InN0YWNrLTc2MDY5NS1hbGxveS1wb2QxIiwiayI6Ilowc080NDhrbFMzMGRVeTYzNVNkem1EOSIsIm0iOnsiciI6InByb2QtdXMtd2VzdC0wIn19"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: alloy
+  namespace: monitoring
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: alloy-kubelet
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "nodes/metrics", "nodes/stats", "nodes/proxy", "pods", "pods/log", "services", "endpoints"]
+    verbs: ["get", "list", "watch"]
+  - nonResourceURLs: ["/metrics", "/metrics/cadvisor"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: alloy-kubelet
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: alloy-kubelet
+subjects:
+  - kind: ServiceAccount
+    name: alloy
+    namespace: monitoring
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alloy-config
+  namespace: monitoring
+data:
+  config.alloy: |
+    // pi-cluster -> Grafana Cloud (stack 760695 / metrics instance 1229240)
+    prometheus.remote_write "cloud" {
+      endpoint {
+        url = "https://prometheus-prod-36-prod-us-west-0.grafana.net/api/prom/push"
+        basic_auth {
+          username = sys.env("ALLOY_USER")
+          password = sys.env("ALLOY_PASS")
+        }
+      }
+    }
+
+    // ── Node exporter (embedded, per node) ─────────────
+    prometheus.exporter.unix "node" {
+      disable_collectors = ["ipvs", "btrfs", "infiniband", "xfs", "zfs", "systemd", "processes"]
+    }
+
+    discovery.relabel "node_export" {
+      targets = prometheus.exporter.unix.node.targets
+      rule {
+        target_label = "instance"
+        replacement  = sys.env("NODE_NAME")
+      }
+      rule {
+        target_label = "job"
+        replacement  = "integrations/node_exporter"
+      }
+    }
+
+    prometheus.scrape "node_export" {
+      targets    = discovery.relabel.node_export.output
+      forward_to = [prometheus.relabel.kubelet.receiver]
+    }
+
+    prometheus.scrape "kubelet" {
+      targets = [{
+        __address__ = "kubernetes.default.svc",
+        __metrics_path__ = "/api/v1/nodes/" + sys.env("NODE_NAME") + "/proxy/metrics",
+        instance    = sys.env("NODE_NAME"),
+        node        = sys.env("NODE_NAME"),
+        job         = "kubelet",
+      }]
+      scheme            = "https"
+      bearer_token_file = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+      tls_config { ca_file = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt" }
+      scrape_interval   = "30s"
+      forward_to        = [prometheus.relabel.kubelet.receiver]
+    }
+
+    prometheus.scrape "cadvisor" {
+      targets = [{
+        __address__ = "kubernetes.default.svc",
+        __metrics_path__ = "/api/v1/nodes/" + sys.env("NODE_NAME") + "/proxy/metrics/cadvisor",
+        instance    = sys.env("NODE_NAME"),
+        node        = sys.env("NODE_NAME"),
+        job         = "cadvisor",
+      }]
+      scheme            = "https"
+      bearer_token_file = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+      tls_config { ca_file = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt" }
+      scrape_interval   = "30s"
+      forward_to        = [prometheus.relabel.kubelet.receiver]
+    }
+
+    prometheus.scrape "kubestate" {
+      targets = [{
+        __address__ = "kube-state-metrics.monitoring.svc:8080",
+        job         = "kube-state-metrics",
+      }]
+      forward_to = [prometheus.relabel.kubelet.receiver]
+    }
+
+    // ── Logs: cluster pod logs -> Grafana Cloud Loki ───
+    discovery.kubernetes "pods" {
+      role = "pod"
+    }
+
+    loki.source.kubernetes "pods" {
+      targets    = discovery.kubernetes.pods.targets
+      forward_to = [loki.process.cluster.receiver]
+    }
+
+    loki.process "cluster" {
+      stage.static_labels {
+        values = {cluster = "pi-cluster"}
+      }
+      forward_to = [loki.write.cloud.receiver]
+    }
+
+    loki.write "cloud" {
+      endpoint {
+        url = "https://logs-prod-021.grafana.net/loki/api/v1/push"
+        basic_auth {
+          username = sys.env("LOKI_USER")
+          password = sys.env("LOKI_PASS")
+        }
+      }
+    }
+
+    // drop noisy high-cardinality series we don't need
+    prometheus.relabel "kubelet" {
+      forward_to = [prometheus.remote_write.cloud.receiver]
+      // k3s control-plane internals (apiserver/etcd/scheduler/etc.) — ~30k
+      // series of histogram buckets, never charted by any dashboard
+      // (checked all dashboards 2026-11-01). Biggest cost lever on the bill.
+      rule {
+        source_labels = ["__name__"]
+        regex         = "(apiserver_|etcd_|workqueue_|scheduler_|rest_client_|grpc_|kubernetes_feature_enabled|kubeproxy_|controller_manager_|go_|process_).*"
+        action        = "drop"
+      }
+      rule {
+        source_labels = ["container"]
+        regex         = ""
+        target_label  = "container"
+        replacement   = "host"
+      }
+    }
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: alloy
+  namespace: monitoring
+spec:
+  selector: {matchLabels: {app: alloy}}
+  template:
+    metadata:
+      labels: {app: alloy}
+    spec:
+      serviceAccountName: alloy
+      tolerations:
+        - {key: node-role.kubernetes.io/control-plane, operator: Exists, effect: NoSchedule}
+      containers:
+        - name: alloy
+          image: grafana/alloy:v1.9.2
+          args: ["run", "/etc/alloy/config.alloy", "--server.http.listen-addr=0.0.0.0:12345"]
+          env:
+            - {name: ALLOY_USER, valueFrom: {secretKeyRef: {name: alloy-cloud-auth, key: username}}}
+            - {name: ALLOY_PASS, valueFrom: {secretKeyRef: {name: alloy-cloud-auth, key: password}}}
+            - {name: LOKI_USER, valueFrom: {secretKeyRef: {name: alloy-loki-auth, key: username}}}
+            - {name: LOKI_PASS, valueFrom: {secretKeyRef: {name: alloy-loki-auth, key: password}}}
+            - {name: HOST_IP, valueFrom: {fieldRef: {fieldPath: status.hostIP}}}
+            - {name: NODE_NAME, valueFrom: {fieldRef: {fieldPath: spec.nodeName}}}
+          resources:
+            requests: {cpu: 50m, memory: 100Mi}
+            limits: {memory: 300Mi}
+          volumeMounts:
+            - {name: config, mountPath: /etc/alloy}
+      volumes:
+        - name: config
+          configMap: {name: alloy-config}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kube-state-metrics
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: kube-state-metrics}}
+  template:
+    metadata:
+      labels: {app: kube-state-metrics}
+    spec:
+      serviceAccountName: kube-state-metrics
+      containers:
+        - name: ksm
+          image: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.14.0
+          ports: [{containerPort: 8080, name: metrics}]
+          resources:
+            requests: {cpu: 20m, memory: 64Mi}
+            limits: {memory: 200Mi}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kube-state-metrics
+  namespace: monitoring
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kube-state-metrics
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "nodes", "services", "endpoints", "configmaps", "secrets", "persistentvolumeclaims", "persistentvolumes", "namespaces"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses", "volumeattachments"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["certificates.k8s.io"]
+    resources: ["certificatesigningrequests"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kube-state-metrics
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kube-state-metrics
+subjects:
+  - kind: ServiceAccount
+    name: kube-state-metrics
+    namespace: monitoring
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kube-state-metrics
+  namespace: monitoring
+spec:
+  selector: {app: kube-state-metrics}
+  ports:
+    - {port: 8080, targetPort: 8080, name: metrics}

@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: pi-cluster
+  namespace: argocd
+spec:
+  description: >
+    4-node Raspberry Pi k3s cluster. Deploy source of truth is this git repo;
+    automation acts through least-privilege ServiceAccounts, never admin.
+  sourceRepos:
+    - git@github.com:MkultraUSA/pi-cluster.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: registry
+    - server: https://kubernetes.default.svc
+      namespace: desktop
+    - server: https://kubernetes.default.svc
+      namespace: desktop-gate
+    - server: https://kubernetes.default.svc
+      namespace: monitoring
+    - server: https://kubernetes.default.svc
+      namespace: smoke
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+  namespaceResourceBlacklist:
+    - group: ""
+      kind: ResourceQuota

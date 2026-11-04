@@ -1,0 +1,4 @@
+*.log
+*.key
+id_rsa*
+*.pem

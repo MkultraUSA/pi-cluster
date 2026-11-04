@@ -1,0 +1,206 @@
+# pi-cluster — Desktop auth gateway (Apache Guacamole pattern), task 2 of Kevin's 2026-11-02 order
+# Accounts kevin + elise (passwords: generated, values in chat only, NOT in this file).
+# ClusterIP services for desktop-2/3 here; desktop-0/1 keep their existing Services
+# (their NodePorts 30900/30901 get DELETED once the gateway is live — no unauth backdoors).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: desktop-gate
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: desktop-2-svc
+  namespace: desktop
+spec:
+  selector:
+    app: desktop
+    statefulset.kubernetes.io/pod-name: desktop-2
+  ports:
+    - {port: 80, targetPort: 6080, name: novnc}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: desktop-3-svc
+  namespace: desktop
+spec:
+  selector:
+    app: desktop
+    statefulset.kubernetes.io/pod-name: desktop-3
+  ports:
+    - {port: 80, targetPort: 6080, name: novnc}
+---
+# PostgreSQL (accounts + connection records; wipes policy: nothing here is precious)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: guac-pg
+  namespace: desktop-gate
+spec:
+  storageClassName: nfs
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: guac-pg
+  namespace: desktop-gate
+spec:
+  selector: {app: guac-pg}
+  ports: [{port: 5432, targetPort: 5432}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: guac-pg
+  namespace: desktop-gate
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: guac-pg}}
+  template:
+    metadata:
+      labels: {app: guac-pg}
+    spec:
+      nodeSelector: {kubernetes.io/hostname: cluster3}
+      containers:
+        - name: pg
+          image: postgres:16-alpine
+          env:
+            - {name: POSTGRES_DB, value: guacamole_db}
+            - {name: POSTGRES_USER, value: guacamole_user}
+            - name: POSTGRES_PASSWORD
+              valueFrom: {secretKeyRef: {name: gate-auth, key: PG_PASSWORD}}
+          ports: [{containerPort: 5432}]
+          volumeMounts: [{name: data, mountPath: "/var/lib/postgresql/data"}]
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {memory: 512Mi}
+      volumes:
+        - name: data
+          persistentVolumeClaim: {claimName: guac-pg}
+---
+# guacd — passive proxy, in-namespace only (LAN-isolated by design)
+apiVersion: v1
+kind: Service
+metadata:
+  name: guacd
+  namespace: desktop-gate
+spec:
+  selector: {app: guacd}
+  ports: [{port: 4822, targetPort: 4822}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: guacd
+  namespace: desktop-gate
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: guacd}}
+  template:
+    metadata:
+      labels: {app: guacd}
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels: {app: guacd}
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - name: guacd
+          image: guacamole/guacd:1.6.0
+          ports: [{containerPort: 4822}]
+          livenessProbe: {tcpSocket: {port: 4822}, periodSeconds: 30}
+          readinessProbe: {tcpSocket: {port: 4822}, periodSeconds: 10}
+          resources:
+            requests: {cpu: 50m, memory: 128Mi}
+            limits: {memory: 256Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: guacamole
+  namespace: desktop-gate
+spec:
+  type: NodePort
+  selector: {app: guacamole}
+  ports: [{port: 8080, targetPort: 8080, nodePort: 30944, name: web}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: guacamole
+  namespace: desktop-gate
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: guacamole}}
+  template:
+    metadata:
+      labels: {app: guacamole}
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels: {app: guacamole}
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - name: web
+          image: guacamole/guacamole:1.6.0
+          env:
+            - {name: GUACD_HOSTNAME, value: guacd}
+            - {name: OPENSHIFT, value: "true"}
+            - {name: POSTGRESQL_HOSTNAME, value: guac-pg}
+            - {name: POSTGRESQL_PORT, value: "5432"}
+            - {name: POSTGRESQL_DATABASE, value: guacamole_db}
+            - {name: POSTGRESQL_USERNAME, value: guacamole_user}
+            - name: GUAC_USE_X_FORWARDED_FOR
+              value: "true"
+            - name: POSTGRESQL_PASSWORD
+              valueFrom: {secretKeyRef: {name: gate-auth, key: PG_PASSWORD}}
+          ports: [{containerPort: 8080}]
+          readinessProbe:
+            httpGet: {path: /guacamole/, port: 8080}
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet: {path: /guacamole/, port: 8080}
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+          resources:
+            requests: {cpu: 100m, memory: 384Mi}
+            limits: {memory: 768Mi}
+      initContainers:
+        # Wait for db, emit schema from the image's own initdb.sh, load it once
+        - name: db-init
+          image: guacamole/guacamole:1.6.0
+          command: ["/bin/sh","-c"]
+          args:
+            - >
+              /opt/guacamole/bin/initdb.sh --postgresql > /init/01-schema.sql &&
+              echo 'guacamole_user' > /init/pg-ready
+          volumeMounts: [{name: init, mountPath: /init}]
+        - name: db-load
+          image: postgres:16-alpine
+          command: ["/bin/sh","-c"]
+          args:
+            - >
+              until pg_isready -h guac-pg -U guacamole_user; do sleep 3; done;
+              EXISTS=$(psql "postgresql://guacamole_user:$PG_PASSWORD@guac-pg:5432/guacamole_db" -tAc
+              "SELECT count(*) FROM pg_tables WHERE tablename='guacamole_user'");
+              if [ "$EXISTS" = "0" ]; then
+                echo loading-schema; psql "postgresql://guacamole_user:$PG_PASSWORD@guac-pg:5432/guacamole_db" -f /init/01-schema.sql;
+              else echo schema-already-present; fi;
+          volumeMounts: [{name: init, mountPath: /init}]
+          env:
+            - name: PG_PASSWORD
+              valueFrom: {secretKeyRef: {name: gate-auth, key: PG_PASSWORD}}
+      volumes:
+        - name: init
+          emptyDir: {}

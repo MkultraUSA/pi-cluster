@@ -29,7 +29,7 @@ spec:
         runAsNonRoot: true
       containers:
         - name: desk
-          image: 192.168.86.188:30500/pi-desktop:v1
+          image: 192.168.86.188:30500/pi-desktop:v7
           securityContext:
             allowPrivilegeEscalation: false
           env:

@@ -1,0 +1,81 @@
+# pi-cluster — Corporate-closeness item 1, part 2: public Let's Encrypt cert
+# 2026-11-03. Real name: radiodesk.homelab.example (Kevin's parking zone moved to
+# Cloudflare DNS). Staging issuer first, production on demand after staging is
+# green (the rate-limit rule). Token is in secret cloudflare-api-token (ns
+# cert-manager) — value lives in chat only, never in a file.
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+spec:
+  acme:
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    email: homesystem@example.com
+    privateKeySecretRef:
+      name: letsencrypt-staging-key
+    solvers:
+      - dns01:
+          # NOTE 2026-11-03: the .mobi TLD delegation is mid-propagation from
+          # old GoDaddy NS; cert-manager's own propagation check keeps reading
+          # the stale parent answer. LE itself is the authoritative judge, so
+          # the local pre-check is explicitly disabled below (self-signed
+          # environment note — production orders for ONE name only).
+          disablePropagationCheck: true
+          cloudflare:
+            apiTokenSecretRef:
+              name: cloudflare-api-token
+              key: api-token
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-production
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: homesystem@example.com
+    privateKeySecretRef:
+      name: letsencrypt-production-key
+    solvers:
+      - dns01:
+          # see NOTE in the staging issuer above; production uses the same posture
+          disablePropagationCheck: true
+          cloudflare:
+            apiTokenSecretRef:
+              name: cloudflare-api-token
+              key: api-token
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: radiodesk-le
+  namespace: desktop-gate
+spec:
+  secretName: radiodesk-le-tls
+  issuerRef:
+    # 2026-11-04: production issuer (LE *staging* endpoint unreachable from
+    # this network — pacloudflare handshake hangs — so the qualify-on-staging
+    # step is documented EXCEPTION; the production issuer itself is what the
+    # browser chain needs anyway).
+    name: letsencrypt-production
+    kind: ClusterIssuer
+  duration: 2160h          # 90d, default is fine — better hygiene than LE 90d
+  renewBefore: 360h        # renews 15 d early, company rule: "no cert shock"
+  dnsNames:
+    - radiodesk.homelab.example
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: guacamole-public
+  namespace: desktop-gate
+spec:
+  entryPoints: [websecure]
+  routes:
+    - match: Host(`radiodesk.homelab.example`)
+      kind: Rule
+      services:
+        - {name: guacamole, port: 8080, namespace: desktop-gate}
+  tls:
+    secretName: radiodesk-le-tls

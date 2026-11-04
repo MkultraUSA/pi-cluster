@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: patch-pipeline
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: pi-cluster
+  source:
+    repoURL: git@github.com:MkultraUSA/pi-cluster.git
+    targetRevision: main
+    path: infrastructure/patch-pipeline/base
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: registry
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - PruneLast=true
+  ignoreDifferences:
+    # Jobs are immutable: completed drill Jobs (build-v1/v2, scan-v1) are kept
+    # as build recipes and must not read as permanent drift.
+    - group: batch
+      kind: Job
+      jsonPointers:
+        - /spec
+        - /status
