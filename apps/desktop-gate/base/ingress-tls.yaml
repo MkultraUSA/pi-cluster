@@ -45,7 +45,7 @@ spec:
   issuerRef:
     name: pi-cluster-lab-ca
     kind: ClusterIssuer
-  duration: 8760h            # 1y leaf, renewed两个月 early by cert-manager
+  duration: 8760h            # 1y leaf, renewed 60 days early by cert-manager
   renewBefore: 720h          # cert-manager renews 30 d early; the "no cert shock" rule
   dnsNames:
     - gateway.pi-cluster.lan

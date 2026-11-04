@@ -1,0 +1,57 @@
+# ArgoCD UI on the LAN name with a real Let's Encrypt cert.
+# Cert: cert-manager DNS01 via Cloudflare (public cert, private resolution —
+# the argocd.homelab.example A record exists only in Pi-hole; nothing off-LAN).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: argocd-cert
+  namespace: argocd
+spec:
+  secretName: argocd-tls
+  issuerRef:
+    name: letsencrypt-production
+    kind: ClusterIssuer
+  dnsNames:
+    - argocd.homelab.example
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: argocd-https-redirect
+  namespace: argocd
+spec:
+  redirectScheme:
+    scheme: https
+    permanent: true
+    port: "443"
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: argocd-http
+  namespace: argocd
+spec:
+  entryPoints: [web]
+  routes:
+    - match: Host(`argocd.homelab.example`)
+      middlewares:
+        - name: argocd-https-redirect
+      kind: Rule
+      services:
+        # never reached; the middleware redirects first (Traefik CRD requires a service on every rule)
+        - {name: argocd-server, port: 80}
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: argocd-https
+  namespace: argocd
+spec:
+  entryPoints: [websecure]
+  routes:
+    - match: Host(`argocd.homelab.example`)
+      kind: Rule
+      services:
+        - {name: argocd-server, port: 80}
+  tls:
+    secretName: argocd-tls
