@@ -57,7 +57,10 @@ def main():
     tag = deployed_tag()
     scan_path = f"{SCAN_DIR}/{IMAGE}-{tag}.json"
     if not os.path.exists(scan_path):
-        LOG(f"no scan for deployed tag {tag} yet — will match on next poll"); return
+        LOG(f"no scan for deployed tag {tag} yet — will match on next poll")
+        json.dump({"dateReleased": released, "last_checked": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                   "deployed_tag": tag, "note": "awaiting first scan of deployed tag"}, open(STATE, "w"), indent=2)
+        return
     report = json.load(open(scan_path))
     vulns = [v for res in report.get("Results", []) for v in (res.get("Vulnerabilities") or [])]
     our = {v["VulnerabilityID"] for v in vulns}
