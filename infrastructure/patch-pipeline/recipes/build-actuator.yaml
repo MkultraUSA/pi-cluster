@@ -1,5 +1,6 @@
 # Build recipe for the pipeline's utility image: actuator + publisher scripts
-# baked in (built in-cluster by kaniko, like every image here).
+# baked in (built in-cluster by kaniko, like every image here). The scripts
+# live in this ConfigMap — single source of truth, as with page-server.py.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -80,7 +81,7 @@ data:
     def current_tag():
         with open(DEPLOY_FILE) as f:
             for line in f:
-                if f"image: .*{IMAGE}:" in line:
+                if "image:" in line and f"/{IMAGE}:" in line:
                     return line.strip().split(f"{IMAGE}:")[1]
         raise SystemExit("current tag not found in deployment.yaml")
 
@@ -91,10 +92,12 @@ data:
         dockerfile = open(f"{REPO_DIR}/infrastructure/patch-pipeline/recipes/build-v1.yaml").read()
         # The recipe's ConfigMap carries the Dockerfile; reuse it verbatim, only the
         # name changes, and BUILD_STAGE records which scan triggered the rebuild.
+        body = dockerfile.split("Dockerfile: |", 1)[1].split("---", 1)[0]
+        body = "\n".join(l[4:] if l.startswith("    ") else l for l in body.split("\n")).strip("\n") + "\n"
         cm_body = {
             "apiVersion": "v1", "kind": "ConfigMap",
             "metadata": {"name": tag_cm, "namespace": NS},
-            "data": {"Dockerfile": dockerfile.split("Dockerfile: |", 1)[1].split("---", 1)[0].strip("\n")},
+            "data": {"Dockerfile": body},
         }
         k8s("POST", f"/api/v1/namespaces/{NS}/configmaps", cm_body)
         job = {
@@ -125,16 +128,20 @@ data:
             j = k8s("GET", f"/apis/batch/v1/namespaces/{NS}/jobs/kaniko-rebuild-{new_tag}")
             conds = j.get("status", {}).get("conditions", [])
             for c in conds:
-                if c["type"] == "Succeeded":
+                # k8s >=1.33 uses Complete/FailureCriteriaMet; older used Succeeded/Failed
+                if c["type"] in ("Succeeded", "Complete"):
                     LOG("rebuild Succeeded"); return True
-                if c["type"] == "Failed":
+                if c["type"] in ("Failed", "FailureCriteriaMet"):
                     LOG("rebuild Failed"); return False
         LOG("rebuild timed out"); return False
 
 
-    def bump_git(old_tag, new_tag):
+    def clone_repo():
         subprocess.run(["rm", "-rf", REPO_DIR], check=True)
         subprocess.run(["git", "clone", "--depth", "1", REPO, REPO_DIR], env=GIT_ENV, check=True, capture_output=True)
+
+
+    def bump_git(old_tag, new_tag):
         text = open(DEPLOY_FILE).read().replace(f"{IMAGE}:{old_tag}", f"{IMAGE}:{new_tag}")
         open(DEPLOY_FILE, "w").write(text)
         for cmd in (["git", "-C", REPO_DIR, "add", "-A"],
@@ -150,6 +157,7 @@ data:
 
     def main():
         scan_file, fixable = latest_scan()
+        clone_repo()
         old_tag = current_tag()
         LOG(f"scan={os.path.basename(scan_file) if scan_file else 'NONE'} "
             f"fixable={len(fixable)} current_tag={old_tag} force={FORCE}")
@@ -295,10 +303,11 @@ data:
         subprocess.run(["git", "clone", "--depth", "1", "--branch", "gh-pages", STATUS_REPO, STATUS_DIR],
                        env=GIT_ENV, check=True, capture_output=True)
         subprocess.run(["cp", "/tmp/render/index.html", "/tmp/render/status.json", STATUS_DIR + "/"], check=True)
-        for cmd in (["git", "-C", STATUS_DIR, "add", "-A"],
+        cmds = [["git", "-C", STATUS_DIR, "add", "-A"],
                     ["git", "-C", STATUS_DIR, "-c", "user.name=patch-publisher", "-c", "user.email=publisher@pi-cluster.lan",
-                     "commit", "-q", "-m", f"status update {time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime())}"]
-                    ) + ([["git", "-C", STATUS_DIR, "push", "-q", "origin", "gh-pages"]]):
+                     "commit", "-q", "-m", f"status update {time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime())}"],
+                ["git", "-C", STATUS_DIR, "push", "-q", "origin", "gh-pages"]]
+        for cmd in cmds:
             r = subprocess.run(cmd, env=GIT_ENV, capture_output=True, text=True)
             if r.returncode and "nothing to commit" not in r.stderr:
                 raise SystemExit(f"git failed: {cmd}\n{r.stderr}")
@@ -318,6 +327,13 @@ spec:
   template:
     spec:
       restartPolicy: Never
+      initContainers:
+        - name: deref-context
+          image: docker.io/library/busybox:1.36
+          command: ["sh", "-c", "cp -L /cm/* /ws/ && ls -la /ws/"]
+          volumeMounts:
+            - {name: cm-files, mountPath: /cm}
+            - {name: workspace, mountPath: /ws}
       containers:
         - name: kaniko
           image: gcr.io/kaniko-project/executor:v1.23.2
@@ -333,7 +349,9 @@ spec:
             requests: {cpu: 500m, memory: 512Mi}
             limits: {memory: 1200Mi}
           volumeMounts:
-            - {name: dockerfile, mountPath: /workspace}
+            - {name: workspace, mountPath: /workspace}
       volumes:
-        - name: dockerfile
+        - name: cm-files
           configMap: {name: actuator-build-files}
+        - name: workspace
+          emptyDir: {}
