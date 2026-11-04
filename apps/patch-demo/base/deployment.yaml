@@ -29,7 +29,7 @@ spec:
               app: patch-demo
       containers:
         - name: patch-demo
-          image: 192.168.86.188:30500/patch-demo:v20261104-2321
+          image: 192.168.86.188:30500/patch-demo:v20261104-2332
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
