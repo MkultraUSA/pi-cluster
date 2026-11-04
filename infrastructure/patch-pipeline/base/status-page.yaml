@@ -11,6 +11,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: pipeline-page
+  annotations:
+    cluster.homelab.example/deployed-by: argocd-gitops
   namespace: registry
 spec:
   replicas: 1
