@@ -1,0 +1,20 @@
+# MetalLB L2 pool: .244-.250 ARP-verified free on the LAN (2026-11-05).
+# Kevin should reserve this range in the router's DHCP settings so it never
+# gets handed out to something else.
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: lan-pool
+  namespace: metallb-system
+spec:
+  addresses:
+    - 192.168.86.244-192.168.86.250
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: lan-l2
+  namespace: metallb-system
+spec:
+  ipAddressPools:
+    - lan-pool
