@@ -128,3 +128,35 @@ VERDICT: TRACK
 3. Confirm the pipeline commit that produced `-2306`.
 
 I couldn't write the standing rule into `infrastructure/patch-pipeline/agent/playbook.md`. The write was denied for lack of permission. The file already holds an earlier "proposed" version of the same rule inside the 00:15 entry. I can add the rule above as a "Standing rules (tier-1)" section at the top of the file once you grant write access.
+
+
+## 2026-11-05 01:30 UTC — claude
+
+**Task:** Assess the current KEV state and recent evidence against our inventory. Give a verdict (ACT NOW / TRACK / MITIGATE) and short reasoning.
+
+VERDICT: TRACK
+
+**Evidence record (2026-11-05, ~01:15 UTC):**
+
+- **KEV feed:** `dateReleased` is unchanged (2026-11-04T20:00:05Z), so there is no new KEV entry since the last assessment. `last_checked` is 01:15:03Z, so the poller is running.
+- **Deployed tag:** `v20261104-2332` is the live `patch-demo` image. The note still reads "awaiting first scan of deployed tag", so that image has no CVE list. This gap is now about 1.5 hours old.
+- **Rebuilds:** The three `workload changed` events (23:15, 23:30, 23:45) are 15 minutes apart and the registry tags match the workload tags. All three images come from our registry (`192.168.86.188:30500`). No new rebuilds appeared after 23:45, so the burst has stopped and there is no ongoing loop. I did not re-check the git log this round. Earlier analysis found pipeline commits for `-2321` and `-2332` but not for `-2306`. Until `-2306` is matched to a commit, treat it as unconfirmed, not as drift.
+- **Inventory:** RUNNING WORKLOADS is empty, so I can't match KEV entries to a running, reachable component.
+- **Why not ACT NOW or MITIGATE:** No KEV CVE is confirmed in a running, reachable workload, and no unfixable KEV CVE has been shown.
+- **Why not "no risk":** The running image is unscanned and the inventory is empty. Missing data is not evidence of safety.
+
+**Standing rule for tier-1 (proposed):**
+1. A `workload changed` event for `patch-demo` whose tag matches a pipeline commit (`patch: bump … security rebuild`) and whose image comes from `192.168.86.188:30500` is a routine rebuild. Log it and don't escalate.
+2. On each such event, set `deployed_tag` to the new tag and trigger a scan of it.
+3. A tag change with no matching pipeline commit is unexplained drift. Escalate to TRACK, and to ACT NOW if the image is not from our registry or build path.
+4. Three or more rebuilds within an hour are a possible rebuild loop. Escalate to TRACK and check whether trivy is stuck on one unfixable CVE.
+5. If a "awaiting first scan" note persists for more than 30 minutes, treat the scan pipeline as stalled and escalate to TRACK.
+6. Scan results escalate as before: ACT NOW if a KEV CVE is in a running, reachable workload and a fix exists, and MITIGATE if no fix exists.
+
+**Next actions:**
+1. Scan `v20261104-2332` and populate the workload inventory.
+2. Find out why the scan hasn't run. The last assessment already flagged this.
+3. Compare the CVEs behind the three rebuilds, and check whether they were distinct or the same unfixable one.
+4. Confirm the pipeline commit that produced `-2306`.
+
+I haven't written the rule into the playbook. The earlier write to `infrastructure/patch-pipeline/agent/playbook.md` was denied, and the task asks for a verdict. If you want it added, say so and I'll try again, or grant write access.
