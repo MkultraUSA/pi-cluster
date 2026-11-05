@@ -7,7 +7,7 @@ evidence trail for every change.
 ## Why
 
 Most homelabs prove you can install software. This one is built to prove the
-things employers actually screen for:
+things that are important:
 
 1. **One machine, many workloads.** Pods schedule freely across the 4 nodes —
    storage and images are node-agnostic. Single-node pinning is treated as a
