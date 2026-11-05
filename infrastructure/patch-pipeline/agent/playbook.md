@@ -38,3 +38,32 @@ VERDICT: TRACK
 3. Intersect fixable CVEs with the KEV list on the next 15-minute loop.
 4. Escalate to ACT NOW if a KEV CVE is present in a running, internet-reachable workload and a fix is available. Escalate to MITIGATE if no fix is available.
 5. If the scan is still missing after a few loops, treat that as a pipeline fault and investigate. The state file's "awaiting scan" path is a recent addition (commit 5431f85), so it's worth checking.
+
+
+## 2026-11-05 00:15 UTC — claude
+
+**Task:** Assess the current KEV state and recent evidence against our inventory. Give a verdict (ACT NOW / TRACK / MITIGATE) and short reasoning.
+
+VERDICT: TRACK
+
+**Evidence record (2026-11-04, ~23:45 UTC):**
+
+- **KEV state:** The feed is unchanged. It was released 20:00:05Z and last checked 20:20:55Z. The deployed-tag note still reads "awaiting first scan of deployed tag" for `v20261104-1845`. That state file looks stale. The workload has since moved three times, so the `deployed_tag` field no longer matches what is running.
+- **Novel events:** `patch-demo` went from `v20261104-2306` to `-2321` to `-2332` between 23:15 and 23:45 UTC. Each change was a new registry tag followed by a workload change. This matches the git-commit patch pipeline: the recent commits show "security rebuild via trivy verdict" bumps for those exact tags. These are expected, self-initiated rebuilds, not unknown drift.
+- **Inventory gap:** The RUNNING WORKLOADS section is still empty. The event stream does show `patch-demo` is the live workload at `-2332`. No KEV-to-CVE intersection has been shown for any of these tags.
+- **Why not ACT NOW or MITIGATE:** There's no confirmed KEV match against a running component. No exposure is evidenced and no unfixed KEV CVE is shown, so neither verdict is supported. The pipeline is already rebuilding on its own scan verdicts.
+- **Why not "no risk":** The tag in the KEV state predates three deployments. That means the poller's state is not tracking the deployed image, so the "scan gap" is now a pipeline-visibility fault rather than just a delay.
+
+**Standing rule (proposed for the playbook, tier-1):**
+1. A `workload changed` event for `patch-demo` whose new tag appears as a pipeline commit (`patch: bump ... security rebuild`) is a **routine rebuild**. Log it and take no escalation.
+2. On each such event, update `deployed_tag` in the KEV state and trigger a scan of the new tag. Don't leave it pinned to an older tag.
+3. A tag change with **no matching pipeline commit** is **unexplained drift**. Escalate to TRACK with investigation, and to ACT NOW if the image is not from our registry or build path.
+4. Three or more rebuilds within an hour should be flagged as a possible rebuild loop. This session saw three in 30 minutes, which is a loop signal. The cause is probably the scan verdict re-triggering after each rebuild, so check that the trivy verdict isn't stuck on an unfixable CVE.
+
+**Next actions:**
+1. Fix the poller so `deployed_tag` follows the live workload (`v20261104-2332`), then scan that tag.
+2. Populate the workload inventory.
+3. Check why trivy keeps requesting rebuilds, and whether the three 30-minute rebuilds addressed distinct CVEs or the same one.
+4. Escalate per the earlier criteria: ACT NOW if a KEV CVE is in a running, reachable workload and a fix exists, and MITIGATE if no fix exists.
+
+I haven't written this to the playbook file. I can add it to the playbook if you want.

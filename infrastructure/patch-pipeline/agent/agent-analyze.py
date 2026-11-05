@@ -88,8 +88,39 @@ def ask(model, prompt):
 
 def main():
     case_study = "--case-study" in sys.argv
+    force = "--force" in sys.argv
     kev = read_pvc("/data/kev-state.json")
     inbox = read_pvc("/data/agent-inbox.json")
+
+    # No-op guard: the timer fires every 30 min; the model only wakes when
+    # something actually changed since the last processed run. Subscriptions
+    # are rate-limit pools, not free firehoses.
+    marker_path = os.path.expanduser("~/.config/pi-cluster-agent-state.json")
+    try:
+        marker = json.load(open(marker_path))
+    except Exception:
+        marker = {}
+    try:
+        kev_release = json.loads(kev).get("dateReleased") if kev else None
+    except Exception:
+        kev_release = None
+    signals = []
+    try:
+        inbox_items = json.loads(inbox) if inbox.strip() else []
+    except Exception:
+        inbox_items = []
+    if kev_release and kev_release != marker.get("kev_release"):
+        signals.append(f"KEV feed updated to {kev_release}")
+    if len(inbox_items) != marker.get("inbox_len", 0):
+        signals.append(f"novel-event inbox at {len(inbox_items)} items")
+    if not signals and not case_study and not force:
+        LOG(f"nothing new since last run (KEV {kev_release}, inbox {len(inbox_items)}) — no model call")
+        json.dump({"kev_release": kev_release, "inbox_len": len(inbox_items),
+                   "last_run": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())},
+                  open(marker_path, "w"), indent=2)
+        return
+    if signals:
+        LOG("signals: " + "; ".join(signals))
     playbook_path = PLAYBOOK
     playbook = open(playbook_path).read() if os.path.exists(playbook_path) else "(empty)"
     task = ("Case study: record the PHP2Shell incident (CVE-2026-109618 / CVE-2026-109619) "
