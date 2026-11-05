@@ -1,0 +1,87 @@
+# Build recipe for the pg-backup image: postgres:16-alpine (pg_dump matches
+# the server) + openssh-client for the offsite push. Built in-cluster by
+# kaniko like every image here. One-time: kubectl apply -f, wait, delete Job.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pgbackup-build-files
+  namespace: registry
+data:
+  Dockerfile: |
+    FROM postgres:16-alpine
+    RUN apk add --no-cache openssh-client
+    COPY pg-backup.sh /usr/local/bin/pg-backup.sh
+    ENTRYPOINT ["/bin/sh", "/usr/local/bin/pg-backup.sh"]
+  pg-backup.sh: |
+    #!/bin/sh
+    # pg-backup: dump the Guacamole gateway DB, keep 7 local copies on the NFS
+    # pool, push each new dump offsite to the Hostinger VPS over ssh.
+    # Restores are rehearsed separately (see the runbook) - an untested backup
+    # is a hope, not a backup.
+    set -e
+    TS=$(date -u +%Y%m%d-%H%M)
+    OUT=/backups/guacamole_db-$TS.sql.gz
+    export PGPASSWORD="$(cat /pg-auth/PG_PASSWORD)"
+
+    pg_dump -U guacamole_user -d guacamole_db | gzip > "$OUT"
+    echo "dumped: $OUT ($(wc -c < "$OUT") bytes)"
+
+    mkdir -p /root/.ssh
+    cp /offsite-key/id_ed25519 /root/.ssh/id_ed25519
+    chmod 600 /root/.ssh/id_ed25519
+    SSHOPTS="-i /root/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new -o IdentitiesOnly=yes"
+    # push offsite, keep the 14 newest offsite copies
+    ssh $SSHOPTS pibackup@offsite-backup.example \
+      "mkdir -p ~/pi-cluster-backups && cat > ~/pi-cluster-backups/$(basename "$OUT")" < "$OUT"
+    ssh $SSHOPTS pibackup@offsite-backup.example \
+      "cd ~/pi-cluster-backups && ls -t | tail -n +15 | xargs -r rm -f"
+    echo "pushed offsite"
+
+    # retention on the local pool: keep the 7 newest
+    ls -t /backups/guacamole_db-*.sql.gz | tail -n +8 | xargs -r rm -f
+
+    printf '{"when":"%s","file":"%s","bytes":%s,"offsite":"offsite-backup.example"}\n' \
+      "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$(basename "$OUT")" "$(wc -c < "$OUT")" \
+      > /backups/backup-state.json
+    echo "backup complete"
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kaniko-build-pgbackup
+  namespace: registry
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      restartPolicy: Never
+      initContainers:
+        # ConfigMap mounts render files as symlinks to ..data/; kaniko COPY
+        # preserves symlinks -> broken image. Dereference to real files first.
+        - name: deref-context
+          image: docker.io/library/busybox:1.36
+          command: ["sh", "-c", "cp -L /cm/* /ws/ && ls -la /ws/"]
+          volumeMounts:
+            - {name: cm-files, mountPath: /cm}
+            - {name: workspace, mountPath: /ws}
+      containers:
+        - name: kaniko
+          image: gcr.io/kaniko-project/executor:v1.23.2
+          args:
+            - --dockerfile=/workspace/Dockerfile
+            - --context=/workspace
+            - --destination=registry.registry.svc:5000/pgbackup:v1
+            - --insecure
+            - --insecure-pull
+            - --snapshot-mode=full
+            - --cache=false
+          resources:
+            requests: {cpu: 500m, memory: 512Mi}
+            limits: {memory: 1200Mi}
+          volumeMounts:
+            - {name: workspace, mountPath: /workspace}
+      volumes:
+        - name: cm-files
+          configMap: {name: pgbackup-build-files}
+        - name: workspace
+          emptyDir: {}

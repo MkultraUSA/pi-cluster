@@ -5,3 +5,4 @@ resources:
   - desktop-app.yaml
   - ingress-tls.yaml
   - issuer-le.yaml
+  - pg-backup.yaml

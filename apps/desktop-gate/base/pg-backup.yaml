@@ -1,0 +1,47 @@
+# Offsite backup of the gateway DB (Guacamole accounts + connections).
+# Daily dump to the backups PVC, then pushed offsite to the Hostinger VPS.
+# Restores: see the runbook - a backup has only proven its worth once a
+# restore has been rehearsed with it.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pg-backups
+  namespace: desktop-gate
+spec:
+  storageClassName: nfs
+  accessModes: ["ReadWriteMany"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pg-backup
+  namespace: desktop-gate
+spec:
+  schedule: "30 4 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: backup
+              image: 192.168.86.188:30500/pgbackup:v1
+              imagePullPolicy: Always
+              volumeMounts:
+                - {name: backups, mountPath: /backups}
+                - {name: pg-auth, mountPath: /pg-auth, readOnly: true}
+                - {name: offsite-key, mountPath: /offsite-key, readOnly: true}
+          volumes:
+            - name: backups
+              persistentVolumeClaim: {claimName: pg-backups}
+            - name: pg-auth
+              secret: {secretName: gate-auth}
+            - name: offsite-key
+              secret: {secretName: pg-offsite-key, defaultMode: 384}
