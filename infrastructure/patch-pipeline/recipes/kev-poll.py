@@ -53,6 +53,11 @@ def main():
     if state.get("dateReleased") == released:
         LOG(f"KEV unchanged ({released}, {total} entries) — no action")
         surface_snapshot()
+        dep = k8s("GET", f"/apis/apps/v1/namespaces/{NS}/deployments/{IMAGE}")
+        tag = dep["spec"]["template"]["spec"]["containers"][0]["image"].split(f"/{IMAGE}:")[1]
+        state["deployed_tag"] = tag
+        state["last_checked"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        json.dump(state, open(STATE, "w"), indent=2)
         return
     LOG(f"KEV feed changed: {released} ({total} entries)")
     tag = deployed_tag()
