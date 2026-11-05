@@ -8,7 +8,7 @@ patch action lands on a public page the cluster writes itself:
 ## Why
 
 Most homelabs prove you can install software. I built this one to prove the
-things employers actually screen for:
+things that are important:
 
 1. **One machine, many workloads.** Pods schedule freely across the 4 nodes —
    storage and images are node-agnostic. Single-node pinning is a design
