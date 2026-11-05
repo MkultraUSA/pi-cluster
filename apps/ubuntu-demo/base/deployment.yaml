@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ubuntu-demo
+  namespace: registry
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ubuntu-demo
+  template:
+    metadata:
+      labels:
+        app: ubuntu-demo
+    spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: ubuntu-demo
+      containers:
+        - name: ubuntu-demo
+          image: 192.168.86.188:30500/ubuntu-demo:v1
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+          readinessProbe:
+            httpGet: {path: /, port: 8000}
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          resources:
+            requests: {cpu: 50m, memory: 64Mi}
+            limits: {memory: 128Mi}

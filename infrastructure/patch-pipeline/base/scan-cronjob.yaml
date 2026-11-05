@@ -22,20 +22,26 @@ spec:
                 - |
                   set -e
                   mkdir -p /data/scans /data/trivy-cache
-                  # Dynamic tag list from the registry catalog — a hardcoded
-                  # loop went stale the first time the actuator minted a new
-                  # tag (2026-11-04: deployed v20261104-1845 was never scanned).
-                  TAGS=$(wget -qO- registry.registry.svc:5000/v2/patch-demo/tags/list \
-                    | tr ',' '\n' | tr -d '[]{}"' | grep -o 'v[0-9A-Za-z_.-]*' | sort -u)
-                  echo "scanning tags: $TAGS"
-                  for TAG in $TAGS; do
-                    trivy image \
-                      --db-repository=public.ecr.aws/aquasecurity/trivy-db \
-                      --cache-dir /data/trivy-cache \
-                      --insecure --scanners=vuln --severity=HIGH,CRITICAL \
-                      --format=json \
-                      --output=/data/scans/patch-demo-$TAG.json \
-                      registry.registry.svc:5000/patch-demo:$TAG
+                  # Dynamic: every repo and every tag in the registry, so a
+                  # new image is covered the moment it is pushed. A hardcoded
+                  # tag list went stale on the first actuator-minted tag.
+                  REPOS=$(wget -qO- registry.registry.svc:5000/v2/_catalog \
+                    | tr -d '{}"' | sed 's/.*repositories:\[//;s/\]$//' | tr ',' '\n')
+                  for REPO in $REPOS; do
+                    SAFE=$(echo "$REPO" | tr '/' '-')
+                    TAGS=$(wget -qO- "registry.registry.svc:5000/v2/$REPO/tags/list" \
+                      | tr -d '{}"' | sed 's/.*tags:\[//;s/\]$//' | tr ',' '\n')
+                    echo "scanning repo: $REPO tags: $TAGS"
+                    for TAG in $TAGS; do
+                      [ -n "$TAG" ] || continue
+                      trivy image \
+                        --db-repository=public.ecr.aws/aquasecurity/trivy-db \
+                        --cache-dir /data/trivy-cache \
+                        --insecure --scanners=vuln --severity=HIGH,CRITICAL \
+                        --format=json \
+                        --output=/data/scans/$SAFE-$TAG.json \
+                        registry.registry.svc:5000/$REPO:$TAG
+                    done
                   done
                   echo "scans complete $(date -u +%Y-%m-%dT%H:%M:%SZ)"
               env:

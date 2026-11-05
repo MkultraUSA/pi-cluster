@@ -1,0 +1,59 @@
+# Ubuntu variant of the patch-demo workload — proof that the pipeline is
+# distro-agnostic: same scan, same verdict, same actuator flow. Ubuntu's
+# security flow differs from Debian's (ubuntu-security-status, esm) which is
+# exactly the kind of difference the analyst agent is meant to absorb.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ubuntu-demo-dockerfile
+  namespace: registry
+data:
+  Dockerfile: |
+    FROM ubuntu:24.04
+    ARG BUILD_STAGE=unknown
+    RUN apt-get update && \
+        DEBIAN_FRONTEND=noninteractive apt-get -y upgrade && \
+        DEBIAN_FRONTEND=noninteractive apt-get -y install python3 && \
+        rm -rf /var/lib/apt/lists/*
+    RUN mkdir -p /app && echo -n "$BUILD_STAGE" > /app/BUILD_STAGE && date -u +%Y-%m-%dT%H:%M:%SZ > /app/BUILT_AT
+    CMD ["python3", "-m", "http.server", "8000", "--directory", "/app"]
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kaniko-build-ubuntu-demo
+  namespace: registry
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      restartPolicy: Never
+      initContainers:
+        - name: deref-context
+          image: docker.io/library/busybox:1.36
+          command: ["sh", "-c", "cp -L /cm/* /ws/ && ls -la /ws/"]
+          volumeMounts:
+            - {name: cm-files, mountPath: /cm}
+            - {name: workspace, mountPath: /ws}
+      containers:
+        - name: kaniko
+          image: gcr.io/kaniko-project/executor:v1.23.2
+          args:
+            - --dockerfile=/workspace/Dockerfile
+            - --context=/workspace
+            - --build-arg=BUILD_STAGE=ubuntu-24.04-security-baked
+            - --destination=registry.registry.svc:5000/ubuntu-demo:v1
+            - --insecure
+            - --insecure-pull
+            - --snapshot-mode=full
+            - --cache=false
+          resources:
+            requests: {cpu: 500m, memory: 512Mi}
+            limits: {memory: 1200Mi}
+          volumeMounts:
+            - {name: workspace, mountPath: /workspace}
+      volumes:
+        - name: cm-files
+          configMap: {name: ubuntu-demo-dockerfile}
+        - name: workspace
+          emptyDir: {}

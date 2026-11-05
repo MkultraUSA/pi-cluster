@@ -22,6 +22,8 @@ spec:
       namespace: smoke
     - server: https://kubernetes.default.svc
       namespace: argocd
+    - server: https://kubernetes.default.svc
+      namespace: home-assistant
   clusterResourceWhitelist:
     - group: ""
       kind: Namespace
