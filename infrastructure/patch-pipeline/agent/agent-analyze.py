@@ -161,6 +161,10 @@ def main():
         if r.returncode and "nothing to commit" not in r.stderr:
             raise SystemExit(f"git failed: {cmd}\n{r.stderr}")
     LOG("playbook committed and pushed")
+    # record what we processed so the same signal doesn't re-fire the model
+    json.dump({"kev_release": kev_release, "inbox_len": len(inbox_items),
+               "last_run": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())},
+              open(marker_path, "w"), indent=2)
 
 
 if __name__ == "__main__":

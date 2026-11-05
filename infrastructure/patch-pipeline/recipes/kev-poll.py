@@ -57,6 +57,10 @@ def main():
         tag = dep["spec"]["template"]["spec"]["containers"][0]["image"].split(f"/{IMAGE}:")[1]
         state["deployed_tag"] = tag
         state["last_checked"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        # the note must reflect reality: the awaiting-scan text went stale and
+        # the analyst agent acted on it as if the image were unscanned
+        if os.path.exists(f"/data/scans/{IMAGE}-{tag}.json"):
+            state["note"] = f"deployed tag {tag} scanned"
         json.dump(state, open(STATE, "w"), indent=2)
         return
     LOG(f"KEV feed changed: {released} ({total} entries)")
