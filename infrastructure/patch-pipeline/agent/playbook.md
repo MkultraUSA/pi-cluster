@@ -67,3 +67,33 @@ VERDICT: TRACK
 4. Escalate per the earlier criteria: ACT NOW if a KEV CVE is in a running, reachable workload and a fix exists, and MITIGATE if no fix exists.
 
 I haven't written this to the playbook file. I can add it to the playbook if you want.
+
+
+## 2026-11-05 00:30 UTC — claude
+
+**Task:** Assess the current KEV state and recent evidence against our inventory. Give a verdict (ACT NOW / TRACK / MITIGATE) and short reasoning.
+
+VERDICT: TRACK
+
+**Evidence (2026-11-04, ~23:45 UTC):**
+
+- **KEV feed:** It is unchanged. It was released 20:00:05Z and last checked 20:20:55Z. That check is about 3.5 hours older than the newest events, so the poller isn't recording fresh checks.
+- **Deployed-tag state:** It is stale. `deployed_tag` still reads `v20261104-1845` with the note "awaiting first scan", but `patch-demo` has since moved to `-2306`, then `-2321`, then `-2332`. Commit bbe4e42 was meant to refresh this field, and the state shows no sign it has.
+- **Rebuilds:** The three tag changes are explained. Git history has the pipeline commits "bump v20261104-2306 → 2321" and "2321 → 2332", both marked "security rebuild via trivy verdict". I did not see the commit that produced `-2306` in the log excerpt, so that one is unconfirmed. The registry push is followed by the workload change each time, which matches the self-patch pipeline. This is not unexplained drift.
+- **Inventory:** The RUNNING WORKLOADS section is empty. The event stream shows `patch-demo:v20261104-2332` is live, but no CVE-to-KEV intersection exists for any of these tags.
+- **Why not ACT NOW or MITIGATE:** There is no confirmed KEV match against a running component and no evidence of exposure. No unfixable KEV CVE is shown either.
+- **Why not "no risk":** Absence of scan data isn't evidence of safety. The visibility gap is now over 3 hours, so it is a pipeline fault rather than a delay.
+
+**Proposed standing rule for tier-1:**
+1. A `workload changed` event for `patch-demo` whose tag matches a `patch: bump … security rebuild` commit is a routine rebuild. Log it and don't escalate.
+2. On each such event, set `deployed_tag` to the new tag and trigger a scan of it.
+3. A tag change with no matching pipeline commit is unexplained drift. Escalate to TRACK with investigation, and to ACT NOW if the image isn't from our registry or build path.
+4. Three or more rebuilds in an hour are a possible rebuild loop. This window had three in 30 minutes, so check whether trivy is repeatedly flagging the same unfixable CVE.
+
+**Next actions:**
+1. Find out why the poller state hasn't updated since 20:20Z, and why bbe4e42's refresh isn't taking effect.
+2. Scan `-2332` and populate the workload inventory.
+3. Compare the CVEs behind the three rebuilds to see whether they were distinct or the same one.
+4. Escalate to ACT NOW if a KEV CVE is in a running, reachable workload and a fix exists. Escalate to MITIGATE if no fix exists.
+
+I haven't written the standing rule into the playbook file. I don't have its path, and this reply was meant to be the verdict only. Tell me where it lives and I'll add it.
