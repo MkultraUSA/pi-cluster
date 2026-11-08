@@ -42,17 +42,26 @@ def scans():
         ref, os_name = "", ""
         for res in results:
             target = res.get("Target") or ""
-            if REGISTRY_HOST in target:
+            if REGISTRY_HOST in target and not ref:
                 ref = target.split(REGISTRY_HOST, 1)[1]
             md = (res.get("Metadata") or {}).get("OS") or {}
             if md.get("Name") and not os_name:
                 os_name = f"{md.get('Family', '')} {md.get('Name')}".strip()
+        # trivy 0.58 reports the detected OS inside the Target ref:
+        # "...:v1 (debian 12.15)" — move it where it belongs
+        if not os_name and ref.rfind("(") >= 0 and ref.endswith(")"):
+            os_name = ref[ref.rfind("(") + 1:-1].strip()
+            ref = ref[:ref.rfind("(")].strip()
         if not ref:
             # fallback: scan filenames are <repo>-<tag>.json
             name = os.path.basename(path)[:-5]
             idx = name.find("-v")
             ref = f"{name[:idx]}:{name[idx + 1:]}" if idx > 0 else name
         repo, tag = ref.partition(":")[0], ref.partition(":")[2]
+        # kaniko writes its cache shards as registry repos — build plumbing,
+        # not images under watch
+        if repo.startswith("kaniko-cache") or not tag:
+            continue
         out.append({
             "repo": repo,
             "tag": tag,
