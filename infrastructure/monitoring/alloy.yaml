@@ -4,15 +4,6 @@ metadata:
   name: monitoring
 ---
 apiVersion: v1
-kind: Secret
-metadata:
-  name: alloy-cloud-token
-  namespace: monitoring
-type: Opaque
-stringData:
-  token: "glc_eyJvIjoiOTYzMjI4IiwibiI6InN0YWNrLTc2MDY5NS1hbGxveS1wb2QxIiwiayI6Ilowc080NDhrbFMzMGRVeTYzNVNkem1EOSIsIm0iOnsiciI6InByb2QtdXMtd2VzdC0wIn19"
----
-apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: alloy
