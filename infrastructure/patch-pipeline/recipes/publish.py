@@ -2,7 +2,8 @@
 """patch-publisher: renders the public status page and pushes it to GitHub Pages.
 
 Reads from the registry PVC:
-  /data/scans/patch-demo-*.json   trivy results per tag (6h cadence)
+  /data/scans/<repo>-<tag>.json   trivy results for every repo and tag in the
+                                  registry (dynamic catalog enumeration)
   /data/patched-state/*.json      actuator evidence (when tags were deployed)
 Renders a dark, self-contained index.html + machine-readable status.json and
 pushes them to the gh-pages branch of the PUBLIC status repo. The cluster
@@ -18,7 +19,7 @@ import time
 
 SCAN_DIR = "/data/scans"
 EVIDENCE_DIR = "/data/patched-state"
-IMAGE = "patch-demo"
+REGISTRY_HOST = "registry.registry.svc:5000/"
 STATUS_REPO = "git@github.com:MkultraUSA/pi-cluster-status.git"
 STATUS_DIR = "/tmp/status"
 GIT_KEY = "/status-git-key/id_ed25519"
@@ -29,23 +30,39 @@ LOG = lambda m: print(f"[publish {time.strftime('%H:%M:%S')}] {m}", flush=True)
 
 def scans():
     out = []
-    for path in sorted(glob.glob(f"{SCAN_DIR}/{IMAGE}-*.json"), key=os.path.getmtime):
-        tag = os.path.basename(path)[len(IMAGE) + 1:-5]
+    for path in sorted(glob.glob(f"{SCAN_DIR}/*.json"), key=os.path.getmtime):
         r = json.load(open(path))
-        vulns = [v for res in r.get("Results", []) for v in (res.get("Vulnerabilities") or [])]
+        results = r.get("Results", [])
+        vulns = [v for res in results for v in (res.get("Vulnerabilities") or [])]
         counts = {}
         for v in vulns:
             sev = v.get("Severity", "UNKNOWN").upper()
             counts[sev] = counts.get(sev, 0) + 1
         fixable = sorted({v["VulnerabilityID"] for v in vulns if v.get("FixedVersion")})
+        ref, os_name = "", ""
+        for res in results:
+            target = res.get("Target") or ""
+            if REGISTRY_HOST in target:
+                ref = target.split(REGISTRY_HOST, 1)[1]
+            md = (res.get("Metadata") or {}).get("OS") or {}
+            if md.get("Name") and not os_name:
+                os_name = f"{md.get('Family', '')} {md.get('Name')}".strip()
+        if not ref:
+            # fallback: scan filenames are <repo>-<tag>.json
+            name = os.path.basename(path)[:-5]
+            idx = name.find("-v")
+            ref = f"{name[:idx]}:{name[idx + 1:]}" if idx > 0 else name
+        repo, tag = ref.partition(":")[0], ref.partition(":")[2]
         out.append({
+            "repo": repo,
             "tag": tag,
+            "os": os_name,
             "scanned": time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime(os.path.getmtime(path))),
             "total": len(vulns),
             "counts": {s: counts.get(s, 0) for s in SEV_ORDER if counts.get(s)},
             "fixable": fixable,
         })
-    return out
+    return sorted(out, key=lambda s: (s["repo"], s["tag"]))
 
 
 def timeline():
@@ -64,7 +81,10 @@ def render(scans_data, tl):
         verdict = ('<span class="bad">REBUILD+REPLACE DUE</span>' if s["fixable"]
                    else '<span class="ok">NO ACTION REQUIRED</span>')
         fix = f'fixable: {len(s["fixable"])}' + (f' <span class="meta">({", ".join(s["fixable"][:6])}{"…" if len(s["fixable"]) > 6 else ""})</span>' if s["fixable"] else "")
-        rows += f'<tr><td><b>{html.escape(s["tag"])}</b></td><td>{sev}</td><td>{fix}</td><td>{verdict}</td><td class="meta">{s["scanned"]}</td></tr>'
+        label = html.escape(f'{s["repo"]}:{s["tag"]}')
+        if s["os"]:
+            label += f' <span class="meta">({html.escape(s["os"])})</span>'
+        rows += f'<tr><td><b>{label}</b></td><td>{sev}</td><td>{fix}</td><td>{verdict}</td><td class="meta">{s["scanned"]}</td></tr>'
     tlrows = ""
     for e in tl:
         cves = ", ".join(e.get("fixable_cves", [])[:6]) or "drill"
