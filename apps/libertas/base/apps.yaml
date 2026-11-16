@@ -1,0 +1,106 @@
+# All libertas workloads run on the workers cluster2/cluster3 only (cluster4 hosts NFS and is busy; cluster1 is the control plane).
+apiVersion: batch/v1
+kind: CronJob
+metadata: {name: manuals-fetcher, namespace: libertas, labels: {app: manuals-fetcher}}
+spec:
+  schedule: "17 3 * * 0"          # weekly, Sunday 03:17
+  timeZone: America/Chicago
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 14400
+      template:
+        metadata: {labels: {app: manuals-fetcher}}
+        spec:
+          restartPolicy: Never
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                - matchExpressions:
+                  - {key: kubernetes.io/hostname, operator: In, values: [cluster2, cluster3]}
+          securityContext: {runAsUser: 1000, runAsGroup: 1000, runAsNonRoot: true}
+          containers:
+          - name: fetcher
+            image: 192.168.86.188:30500/libertas/manuals-fetcher:0.3
+            env: [{name: TARGETS, value: /config/targets.json}]
+            resources: {requests: {cpu: 100m, memory: 192Mi}, limits: {cpu: "1", memory: 768Mi}}
+            securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+            volumeMounts:
+            - {name: data, mountPath: /data}
+            - {name: targets, mountPath: /config}
+            - {name: tmp, mountPath: /tmp}
+          volumes:
+          - {name: data, persistentVolumeClaim: {claimName: manuals}}
+          - {name: targets, configMap: {name: manuals-targets}}
+          - {name: tmp, emptyDir: {}}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata: {name: manuals-verify, namespace: libertas, labels: {app: manuals-verify}}
+spec:
+  schedule: "41 4 * * *"          # daily 04:41
+  timeZone: America/Chicago
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 3600
+      template:
+        metadata: {labels: {app: manuals-verify}}
+        spec:
+          restartPolicy: Never
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                - matchExpressions:
+                  - {key: kubernetes.io/hostname, operator: In, values: [cluster2, cluster3]}
+          securityContext: {runAsUser: 1000, runAsGroup: 1000, runAsNonRoot: true}
+          containers:
+          - name: verify
+            image: 192.168.86.188:30500/libertas/manuals-verify:0.1
+            resources: {requests: {cpu: 50m, memory: 64Mi}, limits: {cpu: 500m, memory: 128Mi}}
+            securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+            volumeMounts: [{name: data, mountPath: /data, readOnly: true}]
+          volumes: [{name: data, persistentVolumeClaim: {claimName: manuals, readOnly: true}}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: library-search, namespace: libertas, labels: {app: library-search}}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: library-search}}
+  template:
+    metadata: {labels: {app: library-search}}
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - {key: kubernetes.io/hostname, operator: In, values: [cluster2, cluster3]}
+      securityContext: {runAsUser: 1000, runAsGroup: 1000, runAsNonRoot: true}
+      containers:
+      - name: web
+        image: 192.168.86.188:30500/libertas/library-search:0.1
+        ports: [{containerPort: 8080, name: http}]
+        resources: {requests: {cpu: 20m, memory: 48Mi}, limits: {cpu: 500m, memory: 128Mi}}
+        securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+        readinessProbe: {httpGet: {path: /healthz, port: http}, periodSeconds: 10}
+        livenessProbe: {httpGet: {path: /healthz, port: http}, periodSeconds: 30}
+        volumeMounts: [{name: data, mountPath: /data, readOnly: true}]
+      volumes: [{name: data, persistentVolumeClaim: {claimName: manuals, readOnly: true}}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: library-search, namespace: libertas}
+spec:
+  type: LoadBalancer
+  selector: {app: library-search}
+  ports: [{name: http, port: 80, targetPort: http}]

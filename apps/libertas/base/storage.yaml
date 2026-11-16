@@ -1,0 +1,42 @@
+# Static NFS volumes on cluster4. Retain: deleting a PVC never deletes files.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: libertas-manuals
+spec:
+  capacity: {storage: 200Gi}
+  accessModes: [ReadWriteMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs: {server: 192.168.86.128, path: /srv/bbpool1/manuals}
+  claimRef: {namespace: libertas, name: manuals}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: manuals, namespace: libertas}
+spec:
+  accessModes: [ReadWriteMany]
+  storageClassName: ""
+  volumeName: libertas-manuals
+  resources: {requests: {storage: 200Gi}}
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: libertas-epubs
+spec:
+  capacity: {storage: 100Gi}
+  accessModes: [ReadWriteMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs: {server: 192.168.86.128, path: /srv/bbpool1/epubs}
+  claimRef: {namespace: libertas, name: epubs}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: epubs, namespace: libertas}
+spec:
+  accessModes: [ReadWriteMany]
+  storageClassName: ""
+  volumeName: libertas-epubs
+  resources: {requests: {storage: 100Gi}}

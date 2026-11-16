@@ -1,0 +1,5 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: libertas
+  labels: {app.kubernetes.io/part-of: libertas}
