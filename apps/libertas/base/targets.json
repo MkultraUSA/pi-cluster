@@ -498,5 +498,115 @@
   "source_site": "archive.org",
   "issuer": "U.S. Army",
   "url": "https://archive.org/download/FM4-25x12/FM4-25x12.pdf"
+ },
+ {
+  "pub": "FEMA Are You Ready",
+  "pubno": "FEMA Are You Ready",
+  "title": "Are You Ready? An In-Depth Guide to Citizen Preparedness",
+  "category": "emergency-comms",
+  "date": "2021-11",
+  "issuer": "FEMA",
+  "source_site": "ready.gov",
+  "public_web": true,
+  "url": "https://www.ready.gov/sites/default/files/2021-11/are-you-ready-guide.pdf"
+ },
+ {
+  "pub": "FEMA Family Communication Plan",
+  "pubno": "FEMA Family Communication Plan",
+  "title": "Family Emergency Communication Plan (fillable card)",
+  "category": "emergency-comms",
+  "date": "2020-03",
+  "issuer": "FEMA",
+  "source_site": "ready.gov",
+  "public_web": true,
+  "url": "https://www.ready.gov/sites/default/files/2020-03/family-communication-plan_fillable-card.pdf"
+ },
+ {
+  "pub": "FEMA Emergency Supply Kit",
+  "pubno": "FEMA Emergency Supply Kit",
+  "title": "Emergency Supply Kit Checklist",
+  "category": "emergency-comms",
+  "date": "2020-03",
+  "issuer": "FEMA",
+  "source_site": "ready.gov",
+  "public_web": true,
+  "url": "https://www.ready.gov/sites/default/files/2020-03/ready_emergency-supply-kit-checklist.pdf"
+ },
+ {
+  "pub": "FEMA Alerts and Warnings",
+  "pubno": "FEMA Alerts and Warnings",
+  "title": "Guide for Alerts and Warnings",
+  "category": "emergency-comms",
+  "date": "2021",
+  "issuer": "FEMA",
+  "source_site": "ready.gov",
+  "public_web": true,
+  "url": "https://www.ready.gov/sites/default/files/2022-02/fema_guide-for-alerts-and-warnings_2021.pdf.pdf"
+ },
+ {
+  "pub": "FEMA Commuter Emergency Plan",
+  "pubno": "FEMA Commuter Emergency Plan",
+  "title": "Commuter Emergency Plan",
+  "category": "emergency-comms",
+  "date": "2020-03",
+  "issuer": "FEMA",
+  "source_site": "ready.gov",
+  "public_web": true,
+  "url": "https://www.ready.gov/sites/default/files/2020-03/commuter_emergency_plan.pdf"
+ },
+ {
+  "pub": "FEMA Critical Documents",
+  "pubno": "FEMA Critical Documents",
+  "title": "Safeguard Critical Documents and Valuables",
+  "category": "emergency-comms",
+  "date": "2020-03",
+  "issuer": "FEMA",
+  "source_site": "ready.gov",
+  "public_web": true,
+  "url": "https://www.ready.gov/sites/default/files/2020-03/fema_safeguard-critical-documents-and-valuables.pdf"
+ },
+ {
+  "pub": "FEMA Older Adults Guide",
+  "pubno": "FEMA Older Adults Guide",
+  "title": "Disaster Preparedness Guide for Older Adults",
+  "category": "emergency-comms",
+  "date": "2023-09",
+  "issuer": "FEMA",
+  "source_site": "ready.gov",
+  "public_web": true,
+  "url": "https://www.ready.gov/sites/default/files/2023-09/ready-gov_disaster-preparedness-guide-for-older-adults.pdf"
+ },
+ {
+  "pub": "FEMA CERT Liability Guide",
+  "pubno": "FEMA CERT Liability Guide",
+  "title": "CERT Liability Guide",
+  "category": "emergency-comms",
+  "date": "2021-04",
+  "issuer": "FEMA",
+  "source_site": "ready.gov",
+  "public_web": true,
+  "url": "https://www.ready.gov/sites/default/files/2021-04/CERT_Liability_Guide%20v2.pdf"
+ },
+ {
+  "pub": "FEMA CERT Campus Starter Guide",
+  "pubno": "FEMA CERT Campus Starter Guide",
+  "title": "Campus CERT Starter Guide",
+  "category": "emergency-comms",
+  "date": "2019-06",
+  "issuer": "FEMA",
+  "source_site": "ready.gov",
+  "public_web": true,
+  "url": "https://www.ready.gov/sites/default/files/2019-06/campus_cert_starter_guide_final.pdf"
+ },
+ {
+  "pub": "FEMA CERT Workplace Starter Guide",
+  "pubno": "FEMA CERT Workplace Starter Guide",
+  "title": "Workplace CERT Starter Guide",
+  "category": "emergency-comms",
+  "date": "2020-08",
+  "issuer": "FEMA",
+  "source_site": "ready.gov",
+  "public_web": true,
+  "url": "https://www.ready.gov/sites/default/files/2020-08/workplace_cert_starter_guide.pdf"
  }
 ]

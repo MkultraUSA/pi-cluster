@@ -21,13 +21,15 @@ spec:
       - name: convert
         image: 192.168.86.188:30500/libertas/epub-converter:0.1.1   # arm64, in-cluster registry
         imagePullPolicy: IfNotPresent
-        args: ["--manifest", "/data/manuals/manifest.csv", "--pdf-dir", "/data/manuals", "/data/epubs"]
+        args: ["--brand", "/config/brand.json", "--manifest", "/data/manuals/manifest.csv", "--pdf-dir", "/data/manuals", "/data/epubs"]
         resources:
-          requests: {cpu: "1", memory: 1Gi}
+          requests: {cpu: 500m, memory: 768Mi}
           limits: {cpu: "4", memory: 4Gi}
         volumeMounts:
         - {name: manuals, mountPath: /data/manuals, readOnly: true}
         - {name: epubs, mountPath: /data/epubs}
+        - {name: brand, mountPath: /config, readOnly: true}
       volumes:
       - {name: manuals, persistentVolumeClaim: {claimName: manuals, readOnly: true}}
       - {name: epubs, persistentVolumeClaim: {claimName: epubs}}
+      - {name: brand, configMap: {name: epub-brand}}   # real brand.json applied from the laptop, not in git

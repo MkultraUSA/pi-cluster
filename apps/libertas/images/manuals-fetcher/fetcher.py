@@ -14,7 +14,10 @@ DELAY = float(os.environ.get("DELAY_SECONDS", "4"))
 RETRY_SKIPPED = os.environ.get("RETRY_SKIPPED", "0") == "1"
 CHECK_EDITIONS = os.environ.get("CHECK_EDITIONS", "1") == "1"
 UA = "Mozilla/5.0 (compatible; manuals-archiver/1.0)"
-ALLOWED_HOSTS = ("armypubs.army.mil", "marines.mil", "fema.gov", "dtic.mil", "archive.org")
+ALLOWED_HOSTS = ("armypubs.army.mil", "marines.mil", "fema.gov", "ready.gov", "dtic.mil", "archive.org")
+# FEMA/ready.gov public guides carry no DoD distribution statement. Approved by Kevin 2026-11-16:
+# on these hosts only, a target flagged "public_web" is accepted when no restriction marking is found.
+PUBLIC_WEB_HOSTS = ("fema.gov", "ready.gov")
 BLOCKED_HOSTS = ("trex-arms.com",)
 CATEGORIES = ("radio-signal", "emergency-comms", "land-navigation", "survival", "first-aid", "cold-weather")
 DESC = {
@@ -187,6 +190,10 @@ def main():
             with os.fdopen(fd, "wb") as f:
                 f.write(body)
             status, why = dist_check(tmp)
+            fhost = (urllib.parse.urlparse(final).hostname or "").lower()
+            if (status == "unclear" and t.get("public_web") and why.startswith("no distribution statement")
+                    and any(fhost == h or fhost.endswith("." + h) for h in PUBLIC_WEB_HOSTS)):
+                status, why = "A", f"Public FEMA publication posted for general distribution on {fhost}; no restriction markings found"
             if status != "A":
                 qp = os.path.join(QUAR, os.path.basename(rel))
                 if os.path.exists(qp):
