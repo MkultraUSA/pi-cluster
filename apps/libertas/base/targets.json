@@ -1,0 +1,502 @@
+[
+ {
+  "pub": "MCRP 3-40.3B",
+  "title": "Radio Operator's Handbook",
+  "category": "radio-signal",
+  "date": "1999-06-02",
+  "url": "https://archive.org/download/MCRP3-403B/MCRP3-403B.pdf",
+  "source_site": "archive.org",
+  "pubno": "MCRP 3-40.3B",
+  "issuer": "U.S. Marine Corps"
+ },
+ {
+  "pub": "ATP 6-02.72",
+  "title": "MTTP for Tactical Radios",
+  "category": "radio-signal",
+  "armypubs_id": "1033399",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "ATP 6-02.53",
+  "title": "Techniques for Tactical Radios and Retransmission",
+  "category": "radio-signal",
+  "armypubs_id": "1031572",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "ATP 6-02.54",
+  "title": "Techniques for Satellite Communications",
+  "category": "radio-signal",
+  "armypubs_id": "1021266",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "ATP 6-02.70",
+  "title": "Techniques for Spectrum Management Operations",
+  "category": "radio-signal",
+  "armypubs_id": "1031936",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "FM 6-02",
+  "title": "Signal Support to Operations",
+  "category": "radio-signal",
+  "armypubs_id": "1007816",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "ATP 6-02.2",
+  "title": "Signal Platoon",
+  "category": "radio-signal",
+  "armypubs_id": "1033413",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "ATP 6-02.60",
+  "title": "Tactical Networking Techniques for Corps and Below",
+  "category": "radio-signal",
+  "armypubs_id": "1007515",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "ATP 6-02.75",
+  "title": "Techniques for Communications Security",
+  "category": "radio-signal",
+  "armypubs_id": "1009211",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "ATP 3-05.60",
+  "title": "Special Operations Communications System",
+  "category": "radio-signal",
+  "armypubs_id": "105855",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "TC 3-21.60",
+  "title": "Visual Signals",
+  "category": "radio-signal",
+  "armypubs_id": "1001865",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "TC 9-60",
+  "title": "Communications-Electronics Fundamentals: AC and DC",
+  "category": "radio-signal",
+  "armypubs_id": "81809",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "TC 9-62",
+  "title": "Communications-Electronics Fundamentals: Solid State Devices and Power Supplies",
+  "category": "radio-signal",
+  "armypubs_id": "82536",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "TC 9-64",
+  "title": "Communications-Electronics Fundamentals: Wave Propagation, Transmission Lines, and Antennas",
+  "category": "radio-signal",
+  "armypubs_id": "81636",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "ATP 3-34.45",
+  "title": "Electric Power Generation and Distribution",
+  "category": "radio-signal",
+  "armypubs_id": "1028367",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "ATP 1-02.1",
+  "title": "MTTP for Multi-Service Brevity Codes",
+  "category": "radio-signal",
+  "armypubs_id": "1030919",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "ATP 3-50.21",
+  "title": "Survival",
+  "category": "survival",
+  "armypubs_id": "1005316",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "ATP 3-50.3",
+  "title": "MTTP for Survival, Evasion, and Recovery",
+  "category": "survival",
+  "armypubs_id": "1027265",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "ATP 3-50.22",
+  "title": "Evasion",
+  "category": "survival",
+  "armypubs_id": "1003678",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "ATP 3-90.99",
+  "title": "Desert Operations",
+  "category": "survival",
+  "armypubs_id": "1021932",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "ATP 3-90.98",
+  "title": "Jungle Operations",
+  "category": "survival",
+  "armypubs_id": "1021043",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "TC 3-21.98",
+  "title": "Jungle Handbook",
+  "category": "survival",
+  "armypubs_id": "1033670",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "ATP 4-02.11",
+  "title": "Casualty Response, Tactical Combat Casualty Care, and First Aid",
+  "category": "first-aid",
+  "armypubs_id": "1032717",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "TC 4-02.3",
+  "title": "Field Hygiene and Sanitation",
+  "category": "first-aid",
+  "armypubs_id": "105251",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "ATP 4-25.12",
+  "title": "Unit Field Sanitation Teams",
+  "category": "first-aid",
+  "armypubs_id": "104111",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "ATP 4-02.5",
+  "title": "Casualty Care",
+  "category": "first-aid",
+  "armypubs_id": "103276",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "ATP 4-02.13",
+  "title": "Casualty Evacuation",
+  "category": "first-aid",
+  "armypubs_id": "1022529",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "ATP 4-02.83",
+  "title": "MTTP for Treatment of Nuclear and Radiological Casualties",
+  "category": "first-aid",
+  "armypubs_id": "104161",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "TC 3-25.26",
+  "title": "Map Reading and Land Navigation",
+  "category": "land-navigation",
+  "armypubs_id": "103749",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "ATP 3-90.97",
+  "title": "Mountain Warfare and Cold Weather Operations",
+  "category": "cold-weather",
+  "armypubs_id": "1001536",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "ATP 3-90.96",
+  "title": "Arctic and Extreme Cold Weather Operations",
+  "category": "cold-weather",
+  "armypubs_id": "1030584",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "ATP 3-21.50",
+  "title": "Infantry Small-Unit Mountain and Cold Weather Operations",
+  "category": "cold-weather",
+  "armypubs_id": "1031476",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "TC 21-3",
+  "title": "Soldier's Handbook for Individual Operations and Survival in Cold-Weather Areas",
+  "category": "cold-weather",
+  "armypubs_id": "1032109",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "TC 3-97.61",
+  "title": "Military Mountaineering",
+  "category": "cold-weather",
+  "armypubs_id": "1032223",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "ATP 3-28.1",
+  "title": "MTTP for Defense Support of Civil Authorities",
+  "category": "emergency-comms",
+  "armypubs_id": "1021505",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "ATP 4-02.42",
+  "title": "Army Health System Support to Stability and DSCA Tasks",
+  "category": "emergency-comms",
+  "armypubs_id": "104307",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "ATP 3-11.42",
+  "title": "MTTP for Domestic CBRN Response",
+  "category": "emergency-comms",
+  "armypubs_id": "1024248",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "ATP 4-44",
+  "title": "Water Support Operations",
+  "category": "emergency-comms",
+  "armypubs_id": "1031773",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "FM 24-19 (1991)",
+  "pubno": "FM 24-19",
+  "title": "Radio Operator's Handbook",
+  "category": "radio-signal",
+  "date": "1991-05-24",
+  "source_site": "archive.org",
+  "issuer": "U.S. Army",
+  "url": "https://archive.org/download/FM24-19/FM24-19.pdf"
+ },
+ {
+  "pub": "FM 24-18 (1987)",
+  "pubno": "FM 24-18",
+  "title": "Tactical Single-Channel Radio Communications Techniques",
+  "category": "radio-signal",
+  "date": "1987",
+  "source_site": "archive.org",
+  "issuer": "U.S. Army",
+  "url": "https://archive.org/download/FM2418TacticalSingleChannelRadioCommunicationsTechniques/FM%2024-18%20Tactical%20Single%20Channel%20Radio%20Communications%20Techniques.pdf"
+ },
+ {
+  "pub": "FM 11-32 (1990)",
+  "pubno": "FM 11-32",
+  "title": "Combat Net Radio Operations",
+  "category": "radio-signal",
+  "date": "1990",
+  "source_site": "archive.org",
+  "issuer": "U.S. Army",
+  "url": "https://archive.org/download/FM1132CombatNetRadioOperations/FM%2011-32%20Combat%20Net%20Radio%20Operations.pdf"
+ },
+ {
+  "pub": "FM 21-60 (1987)",
+  "pubno": "FM 21-60",
+  "title": "Visual Signals",
+  "category": "radio-signal",
+  "date": "1987",
+  "source_site": "archive.org",
+  "issuer": "U.S. Army",
+  "url": "https://archive.org/download/FM2160VisualSignals/FM%2021-60%20Visual%20Signals.pdf"
+ },
+ {
+  "pub": "FM 21-76 (1992)",
+  "pubno": "FM 21-76",
+  "title": "Survival",
+  "category": "survival",
+  "date": "1992",
+  "source_site": "archive.org",
+  "issuer": "U.S. Army",
+  "url": "https://archive.org/download/Fm21-76SurvivalManual/FM21-76_SurvivalManual.pdf"
+ },
+ {
+  "pub": "FM 3-05.70 (2002)",
+  "pubno": "FM 3-05.70",
+  "title": "Survival",
+  "category": "survival",
+  "date": "2002-05",
+  "source_site": "archive.org",
+  "issuer": "U.S. Army",
+  "url": "https://archive.org/download/fm-3-05.70-survival-2002/FM%203-05.70%20Survival%20%202002.pdf"
+ },
+ {
+  "pub": "FM 90-3 (1993)",
+  "pubno": "FM 90-3",
+  "title": "Desert Operations",
+  "category": "survival",
+  "date": "1993-08-24",
+  "source_site": "archive.org",
+  "issuer": "U.S. Army",
+  "url": "https://archive.org/download/fm-90-3-desert-operations-1993/FM%2090-3%20Desert%20Operations%20%201993.pdf"
+ },
+ {
+  "pub": "FM 90-5 (1982)",
+  "pubno": "FM 90-5",
+  "title": "Jungle Operations",
+  "category": "survival",
+  "date": "1982",
+  "source_site": "archive.org",
+  "issuer": "U.S. Army",
+  "url": "https://archive.org/download/FM_90_5_J_O_1982/FM%2090-5%20Jungle%20Operations%20%281982%29.pdf"
+ },
+ {
+  "pub": "FM 21-11 (1988)",
+  "pubno": "FM 21-11",
+  "title": "First Aid for Soldiers",
+  "category": "first-aid",
+  "date": "1988",
+  "source_site": "archive.org",
+  "issuer": "U.S. Army",
+  "url": "https://archive.org/download/fm-21-11-first-aid-for-soldier-1989/FM21-11_First_Aid_for_soldier_1989.pdf"
+ },
+ {
+  "pub": "FM 4-25.11 (2002)",
+  "pubno": "FM 4-25.11",
+  "title": "First Aid",
+  "category": "first-aid",
+  "date": "2002-12-23",
+  "source_site": "archive.org",
+  "issuer": "U.S. Army",
+  "url": "https://archive.org/download/FM4-25x11/FM4-25x11.pdf"
+ },
+ {
+  "pub": "FM 21-10 (2000)",
+  "pubno": "FM 21-10",
+  "title": "Field Hygiene and Sanitation (MCRP 4-11.1D)",
+  "category": "first-aid",
+  "date": "2000",
+  "source_site": "archive.org",
+  "issuer": "U.S. Army",
+  "url": "https://archive.org/download/FM2110MCRP411.1DFieldHygieneAndSanitation/FM%2021-10%20MCRP%204-11.1D%20Field%20Hygiene%20and%20Sanitation.pdf"
+ },
+ {
+  "pub": "FM 3-25.26 (2001)",
+  "pubno": "FM 3-25.26",
+  "title": "Map Reading and Land Navigation",
+  "category": "land-navigation",
+  "date": "2001-07-20",
+  "source_site": "archive.org",
+  "issuer": "U.S. Army",
+  "url": "https://archive.org/download/FM3-25x26/FM3-25x26.pdf"
+ },
+ {
+  "pub": "FM 21-26 (1993)",
+  "pubno": "FM 21-26",
+  "title": "Map Reading and Land Navigation",
+  "category": "land-navigation",
+  "date": "1993-05-07",
+  "source_site": "archive.org",
+  "issuer": "U.S. Army",
+  "url": "https://archive.org/download/FM21-26_201211/FM21-26_201211.pdf"
+ },
+ {
+  "pub": "FM 31-70 (1968)",
+  "pubno": "FM 31-70",
+  "title": "Basic Cold Weather Manual",
+  "category": "cold-weather",
+  "date": "1968-04",
+  "source_site": "archive.org",
+  "issuer": "U.S. Army",
+  "url": "https://archive.org/download/fm-31-70-basic-cold-weather-manual-1968/FM%2031-70%20Basic%20Cold%20Weather%20Manual%20%201968.pdf"
+ },
+ {
+  "pub": "FM 31-71 (1971)",
+  "pubno": "FM 31-71",
+  "title": "Northern Operations",
+  "category": "cold-weather",
+  "date": "1971-06",
+  "source_site": "archive.org",
+  "issuer": "U.S. Army",
+  "url": "https://archive.org/download/fm-31-71-northern-operations-1971/FM%2031-71%20Northern%20Operations%20%201971.pdf"
+ },
+ {
+  "pub": "FM 3-97.6 (2000)",
+  "pubno": "FM 3-97.6",
+  "title": "Mountain Operations (FM 90-6)",
+  "category": "cold-weather",
+  "date": "2000-11-28",
+  "source_site": "archive.org",
+  "issuer": "U.S. Army",
+  "url": "https://archive.org/download/FM3-97.6FM90-6MountainOperations20001128/FM%203-97.6%20%28FM%2090-6%29%20Mountain%20Operations%20%5B2000-11-28%5D.pdf"
+ },
+ {
+  "pub": "FM 3-97.61 (2002)",
+  "pubno": "FM 3-97.61",
+  "title": "Military Mountaineering (TC 90-6-1)",
+  "category": "cold-weather",
+  "date": "2002-08",
+  "source_site": "archive.org",
+  "issuer": "U.S. Army",
+  "url": "https://archive.org/download/military-mountaineering-fm-3-97.61-tc-90-6-1/Military%20Mountaineering%20-%20FM%203-97.61%20%28TC%2090-6-1%29.pdf"
+ },
+ {
+  "pub": "TC 3-21.76",
+  "title": "Ranger Handbook",
+  "category": "survival",
+  "armypubs_id": "1032023",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "TC 6-02.20",
+  "title": "Cable and Wire Systems Handbook",
+  "category": "radio-signal",
+  "armypubs_id": "1003986",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "STP 21-1-SMCT",
+  "title": "Soldier's Manual of Common Tasks, Warrior Skills, Level 1",
+  "category": "first-aid",
+  "armypubs_id": "1032188",
+  "source_site": "armypubs.army.mil"
+ },
+ {
+  "pub": "TM 11-666 (1953)",
+  "pubno": "TM 11-666",
+  "title": "Antennas and Radio Propagation",
+  "category": "radio-signal",
+  "date": "1953-02",
+  "source_site": "archive.org",
+  "issuer": "U.S. Army",
+  "url": "https://archive.org/download/tm11666departmen00depa/tm11666departmen00depa.pdf"
+ },
+ {
+  "pub": "FM 21-76-1 (1999)",
+  "pubno": "FM 21-76-1",
+  "title": "Survival, Evasion, and Recovery: Multiservice Procedures",
+  "category": "survival",
+  "date": "1999-06-29",
+  "source_site": "archive.org",
+  "issuer": "U.S. Army (multiservice)",
+  "url": "https://archive.org/download/Fm21-76-1/Fm21-76-1.pdf"
+ },
+ {
+  "pub": "FM 21-18 (1990)",
+  "pubno": "FM 21-18",
+  "title": "Foot Marches",
+  "category": "land-navigation",
+  "date": "1990-06",
+  "source_site": "archive.org",
+  "issuer": "U.S. Army",
+  "url": "https://archive.org/download/FM2118FootMarches/FM%2021-18%20Foot%20Marches.pdf"
+ },
+ {
+  "pub": "FM 4-25.12 (2002)",
+  "pubno": "FM 4-25.12",
+  "title": "Unit Field Sanitation Team",
+  "category": "first-aid",
+  "date": "2002-01-25",
+  "source_site": "archive.org",
+  "issuer": "U.S. Army",
+  "url": "https://archive.org/download/FM4-25x12/FM4-25x12.pdf"
+ }
+]

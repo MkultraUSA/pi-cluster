@@ -1,0 +1,36 @@
+# One manual end to end. Output: PVC epubs (192.168.86.128:/srv/bbpool1/epubs)/fm-3-25-26-2001.epub
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: epub-pilot
+  namespace: libertas
+spec:
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 86400
+  template:
+    spec:
+      restartPolicy: Never
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - {key: kubernetes.io/hostname, operator: In, values: [cluster2, cluster3]}
+      securityContext: {runAsUser: 1000, runAsGroup: 1000, fsGroup: 1000}
+      containers:
+      - name: convert
+        image: 192.168.86.188:30500/libertas/epub-converter:0.1.1   # arm64, in-cluster registry
+        imagePullPolicy: IfNotPresent
+        args: ["/data/manuals/land-navigation/fm-3-25-26-2001.pdf", "/data/epubs",
+               "--title", "Map Reading and Land Navigation", "--pubno", "FM 3-25.26",
+               "--date", "2001", "--issuer", "Headquarters, Department of the Army",
+               "--category", "Land Navigation"]
+        resources:
+          requests: {cpu: 500m, memory: 768Mi}
+          limits: {cpu: "3", memory: 3Gi}
+        volumeMounts:
+        - {name: manuals, mountPath: /data/manuals, readOnly: true}
+        - {name: epubs, mountPath: /data/epubs}
+      volumes:
+      - {name: manuals, persistentVolumeClaim: {claimName: manuals, readOnly: true}}
+      - {name: epubs, persistentVolumeClaim: {claimName: epubs}}
