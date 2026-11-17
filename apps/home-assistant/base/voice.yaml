@@ -1,0 +1,105 @@
+# Wyoming voice services replacing the Whisper / Piper / openWakeWord add-ons on the old HA Pi.
+# HA (hostNetwork, ClusterFirstWithHostNet) reaches them by service DNS name, e.g.
+# whisper.home-assistant.svc.cluster.local:10300. Settings match the restored "Botty" and
+# "Focused local assistant" pipelines. Pinned to cluster2 (most free memory today).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: voice-data
+  namespace: home-assistant
+spec:
+  storageClassName: nfs
+  accessModes: ["ReadWriteMany"]
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: whisper
+  namespace: home-assistant
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector: {matchLabels: {app: whisper}}
+  template:
+    metadata: {labels: {app: whisper}}
+    spec:
+      nodeSelector: {kubernetes.io/hostname: cluster2}
+      containers:
+        - name: whisper
+          image: rhasspy/wyoming-whisper:3.8.1
+          args: ["--model", "tiny-int8", "--language", "en"]
+          ports: [{containerPort: 10300}]
+          resources:
+            requests: {cpu: 250m, memory: 384Mi}
+            limits: {memory: 1Gi}
+          volumeMounts: [{name: data, mountPath: /data, subPath: whisper}]
+      volumes: [{name: data, persistentVolumeClaim: {claimName: voice-data}}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: piper
+  namespace: home-assistant
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector: {matchLabels: {app: piper}}
+  template:
+    metadata: {labels: {app: piper}}
+    spec:
+      nodeSelector: {kubernetes.io/hostname: cluster2}
+      containers:
+        - name: piper
+          image: rhasspy/wyoming-piper:2.5.3
+          args: ["--voice", "en_US-amy-low"]
+          ports: [{containerPort: 10200}]
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {memory: 512Mi}
+          volumeMounts: [{name: data, mountPath: /data, subPath: piper}]
+      volumes: [{name: data, persistentVolumeClaim: {claimName: voice-data}}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openwakeword
+  namespace: home-assistant
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector: {matchLabels: {app: openwakeword}}
+  template:
+    metadata: {labels: {app: openwakeword}}
+    spec:
+      nodeSelector: {kubernetes.io/hostname: cluster2}
+      containers:
+        - name: openwakeword
+          image: rhasspy/wyoming-openwakeword:2.1.0
+          ports: [{containerPort: 10400}]
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {memory: 512Mi}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: whisper, namespace: home-assistant}
+spec:
+  selector: {app: whisper}
+  ports: [{port: 10300, targetPort: 10300}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: piper, namespace: home-assistant}
+spec:
+  selector: {app: piper}
+  ports: [{port: 10200, targetPort: 10200}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: openwakeword, namespace: home-assistant}
+spec:
+  selector: {app: openwakeword}
+  ports: [{port: 10400, targetPort: 10400}]
