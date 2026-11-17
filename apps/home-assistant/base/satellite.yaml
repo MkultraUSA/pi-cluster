@@ -36,8 +36,8 @@ spec:
           securityContext:
             privileged: true
           resources:
-            requests: {cpu: 50m, memory: 96Mi}
-            limits: {memory: 256Mi}
+            requests: {cpu: 50m, memory: 128Mi}
+            limits: {memory: 512Mi}  # pip install at start needs >256Mi
           volumeMounts: [{name: snd, mountPath: /dev/snd}]
       volumes:
         - name: snd
