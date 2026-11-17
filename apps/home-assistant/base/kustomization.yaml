@@ -4,3 +4,4 @@ resources:
   - ha.yaml
   - mosquitto.yaml
   - voice.yaml
+  - satellite.yaml
