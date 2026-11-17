@@ -3,3 +3,4 @@ kind: Kustomization
 resources:
   - ha.yaml
   - mosquitto.yaml
+  - voice.yaml
