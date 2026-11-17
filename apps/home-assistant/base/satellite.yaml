@@ -1,0 +1,51 @@
+# Wyoming voice satellite for the USB mic on cluster3 (replaces the Assist Satellite add-on on
+# the old HA Pi). Local wake word via the openwakeword service; audio streamed to HA after wake.
+# No speaker attached yet (mic only). To use a different mic, change MIC_DEVICE (see `arecord -L`
+# on cluster3). HA adds it as a Wyoming integration at satellite.home-assistant.svc.cluster.local:10700.
+# No upstream container image exists, so the PyPI package is installed at start.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: satellite
+  namespace: home-assistant
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector: {matchLabels: {app: satellite}}
+  template:
+    metadata: {labels: {app: satellite}}
+    spec:
+      nodeSelector: {kubernetes.io/hostname: cluster3}
+      containers:
+        - name: satellite
+          image: python:3.11.11-slim-bookworm
+          env:
+            - {name: MIC_DEVICE, value: "plughw:CARD=Device,DEV=0"}
+          command: ["sh", "-c"]
+          args:
+            - >-
+              apt-get update -qq && apt-get install -y -qq alsa-utils >/dev/null &&
+              pip install -q --no-cache-dir wyoming-satellite==1.0.0 &&
+              exec python -m wyoming_satellite
+              --name "Cluster Mic"
+              --uri tcp://0.0.0.0:10700
+              --mic-command "arecord -D $MIC_DEVICE -r 16000 -c 1 -f S16_LE -t raw"
+              --wake-uri tcp://openwakeword.home-assistant.svc.cluster.local:10400
+              --wake-word-name okay_nabu
+          ports: [{containerPort: 10700}]
+          securityContext:
+            privileged: true
+          resources:
+            requests: {cpu: 50m, memory: 96Mi}
+            limits: {memory: 256Mi}
+          volumeMounts: [{name: snd, mountPath: /dev/snd}]
+      volumes:
+        - name: snd
+          hostPath: {path: /dev/snd, type: Directory}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: satellite, namespace: home-assistant}
+spec:
+  selector: {app: satellite}
+  ports: [{port: 10700, targetPort: 10700}]
