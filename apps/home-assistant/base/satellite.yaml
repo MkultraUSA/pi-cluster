@@ -36,7 +36,7 @@ spec:
           securityContext:
             privileged: true
           resources:
-            requests: {cpu: 50m, memory: 128Mi}
+            requests: {cpu: 50m, memory: 64Mi}  # cluster3 is ~97% requested
             limits: {memory: 512Mi}  # pip install at start needs >256Mi
           volumeMounts: [{name: snd, mountPath: /dev/snd}]
       volumes:
