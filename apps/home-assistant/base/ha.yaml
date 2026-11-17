@@ -32,12 +32,12 @@ spec:
       labels:
         app: home-assistant
     spec:
-      # Host networking on cluster3: LAN discovery (Cast, Sonos, ESPHome, UPnP) and the node's
-      # onboard Bluetooth (hci0, via host D-Bus) for the Govee BLE sensors. UI: http://192.168.86.251:8123
+      # Host networking on cluster5 (the old HA Pi, 8 GB, 192.168.86.182): LAN discovery (Cast, Sonos, ESPHome, UPnP) and the node's
+      # onboard Bluetooth (hci0, via host D-Bus) for the Govee BLE sensors. UI: http://192.168.86.182:8123
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       nodeSelector:
-        kubernetes.io/hostname: cluster3
+        kubernetes.io/hostname: cluster5
       containers:
         - name: home-assistant
           # Pinned to the standalone Pi's version so its backup restores cleanly.
