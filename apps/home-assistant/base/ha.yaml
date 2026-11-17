@@ -32,9 +32,19 @@ spec:
       labels:
         app: home-assistant
     spec:
+      # Host networking on cluster3: LAN discovery (Cast, Sonos, ESPHome, UPnP) and the node's
+      # onboard Bluetooth (hci0, via host D-Bus) for the Govee BLE sensors. UI: http://192.168.86.251:8123
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      nodeSelector:
+        kubernetes.io/hostname: cluster3
       containers:
         - name: home-assistant
-          image: ghcr.io/home-assistant/home-assistant:stable
+          # Pinned to the standalone Pi's version so its backup restores cleanly.
+          image: ghcr.io/home-assistant/home-assistant:2026.11.1
+          securityContext:
+            capabilities:
+              add: ["NET_ADMIN", "NET_RAW"]
           ports:
             - containerPort: 8123
           readinessProbe:
@@ -47,9 +57,12 @@ spec:
             limits: {memory: 1536Mi}
           volumeMounts:
             - {name: config, mountPath: /config}
+            - {name: dbus, mountPath: /run/dbus, readOnly: true}
       volumes:
         - name: config
           persistentVolumeClaim: {claimName: ha-config}
+        - name: dbus
+          hostPath: {path: /run/dbus, type: Directory}
 ---
 apiVersion: v1
 kind: Service

@@ -1,0 +1,98 @@
+# MQTT broker replacing the Mosquitto add-on on the standalone HA Pi (192.168.86.182).
+# Users come from Secret mosquitto-users (key passwd.plain, "user:password" lines), created
+# out-of-band on cluster1 and never committed; the init container hashes it at start.
+# Fixed LAN address 192.168.86.246 (MetalLB lan-pool) so clients like the SenseCAP D1 can
+# be pointed at it with `setmqtt --addr mqtt://192.168.86.246:1883`.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mosquitto-config
+  namespace: home-assistant
+data:
+  mosquitto.conf: |
+    listener 1883
+    allow_anonymous false
+    password_file /mosquitto/auth/passwd
+    persistence true
+    persistence_location /mosquitto/data/
+    log_dest stdout
+    log_type error
+    log_type warning
+    log_type notice
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mosquitto-data
+  namespace: home-assistant
+spec:
+  storageClassName: nfs
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 256Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mosquitto
+  namespace: home-assistant
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: mosquitto
+  template:
+    metadata:
+      labels:
+        app: mosquitto
+    spec:
+      initContainers:
+        - name: hash-passwords
+          image: eclipse-mosquitto:2.0.20
+          command: ["sh", "-c", "cp /plain/passwd.plain /mosquitto/auth/passwd && chmod 0700 /mosquitto/auth/passwd && mosquitto_passwd -U /mosquitto/auth/passwd && chown mosquitto:mosquitto /mosquitto/auth/passwd"]
+          volumeMounts:
+            - {name: plain, mountPath: /plain, readOnly: true}
+            - {name: auth, mountPath: /mosquitto/auth}
+      containers:
+        - name: mosquitto
+          image: eclipse-mosquitto:2.0.20
+          ports:
+            - containerPort: 1883
+          readinessProbe:
+            tcpSocket: {port: 1883}
+            periodSeconds: 10
+          resources:
+            requests: {cpu: 20m, memory: 32Mi}
+            limits: {memory: 128Mi}
+          volumeMounts:
+            - {name: config, mountPath: /mosquitto/config}
+            - {name: auth, mountPath: /mosquitto/auth}
+            - {name: data, mountPath: /mosquitto/data}
+      volumes:
+        - name: plain
+          secret: {secretName: mosquitto-users}
+        - name: auth
+          emptyDir: {}
+        - name: config
+          configMap: {name: mosquitto-config}
+        - name: data
+          persistentVolumeClaim: {claimName: mosquitto-data}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mosquitto
+  namespace: home-assistant
+  annotations:
+    metallb.universe.tf/loadBalancerIPs: 192.168.86.246
+spec:
+  type: LoadBalancer
+  selector:
+    app: mosquitto
+  ports:
+    - name: mqtt
+      port: 1883
+      targetPort: 1883
