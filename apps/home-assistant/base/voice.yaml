@@ -1,7 +1,7 @@
 # Wyoming voice services replacing the Whisper / Piper / openWakeWord add-ons on the old HA Pi.
 # HA (hostNetwork, ClusterFirstWithHostNet) reaches them by service DNS name, e.g.
 # whisper.home-assistant.svc.cluster.local:10300. Settings match the restored "Botty" and
-# "Focused local assistant" pipelines. Pinned to cluster2 (most free memory today).
+# "Focused local assistant" pipelines. Pinned to cluster5 (8 GB node).
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -26,7 +26,7 @@ spec:
   template:
     metadata: {labels: {app: whisper}}
     spec:
-      nodeSelector: {kubernetes.io/hostname: cluster2}
+      nodeSelector: {kubernetes.io/hostname: cluster5}
       containers:
         - name: whisper
           image: rhasspy/wyoming-whisper:3.8.1
@@ -50,7 +50,7 @@ spec:
   template:
     metadata: {labels: {app: piper}}
     spec:
-      nodeSelector: {kubernetes.io/hostname: cluster2}
+      nodeSelector: {kubernetes.io/hostname: cluster5}
       containers:
         - name: piper
           image: rhasspy/wyoming-piper:2.5.3
@@ -74,7 +74,7 @@ spec:
   template:
     metadata: {labels: {app: openwakeword}}
     spec:
-      nodeSelector: {kubernetes.io/hostname: cluster2}
+      nodeSelector: {kubernetes.io/hostname: cluster5}
       containers:
         - name: openwakeword
           image: rhasspy/wyoming-openwakeword:2.1.0
