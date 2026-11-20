@@ -47,7 +47,7 @@ spec:
               env:
                 - {name: TRIVY_CACHE_DIR, value: /data/trivy-cache}
               resources:
-                requests: {cpu: 500m, memory: 512Mi}
+                requests: {cpu: 500m, memory: 384Mi}  # 512Mi did not fit on cluster1 (88% requested); runs ~35s
                 limits: {memory: 1500Mi}
               volumeMounts:
                 - {name: data, mountPath: /data}
