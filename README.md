@@ -1,45 +1,55 @@
 # pi-cluster
 
-A 4-node Raspberry Pi Kubernetes cluster in my house, run the way I'd run
-production at a company: GitOps deploys, vulnerability management with a
-patch SLA, offsite backups with a rehearsed restore, least-privilege RBAC,
-and a public evidence trail. The cluster writes that trail itself:
+A five-node Raspberry Pi Kubernetes cluster that I run at home the way a
+company runs production. Deploys go through git. Images are scanned for
+vulnerabilities on a schedule and patched against a target time. Backups go
+offsite, and I have tested restoring from them. Service accounts get the
+least access they need. The cluster publishes its own evidence page:
 **[mkultrausa.github.io/pi-cluster-status](https://mkultrausa.github.io/pi-cluster-status/)**
 
-## The corporate mapping
+## What this is for
 
-Every piece of this cluster corresponds to something a company runs.
-Same tools, same practices, real hardware.
+I'm building an operations track record. Every part of this cluster matches
+something a company runs, using the same tools on real hardware, so each
+claim below can be checked against the repo and the status page.
 
-| Corporate practice | What runs here |
+| Practice | What runs here |
 |---|---|
-| GitOps deploy (OpenShift GitOps / ArgoCD) | ArgoCD v3.6.1, self-heal on, app-of-apps. Production changes are git commits, nothing else. |
-| Vulnerability management | trivy scans every image hourly against an auto-refreshed CVE database. Verdicts: TRACK or REBUILD+REPLACE DUE. |
-| Threat intel prioritization | CISA KEV feed polled every 15 minutes. A match on a running image skips the queue and fires the patcher directly. |
-| Automated remediation | The actuator rebuilds the image in-cluster (kaniko) with security fixes baked in, commits the new tag, and ArgoCD rolls the fleet behind readiness gates. |
-| DR: database backups + rehearsed restore | Nightly pg_dump of the gateway database to an NFS pool (7 kept) and an offsite VPS (14 kept). The restore was rehearsed against a scratch database and verified. |
-| Load balancing + ingress TLS | MetalLB L2 addresses, Traefik ingress, cert-manager with Let's Encrypt. |
-| Least-privilege service accounts | The patcher and the analyst have RBAC roles that cannot touch workloads. Their only write path is a git commit. |
-| AI analyst with an audit trail | A model chain (Claude → Gemini → Codex → OpenCode, failover) reviews unusual events and writes its reasoning into a versioned playbook. It has no cluster credentials. |
+| GitOps deploys | ArgoCD v3.6.1 with self-heal and an app-of-apps layout. A change to production is a commit to `main`. |
+| Vulnerability management | trivy scans every image in the registry hourly. Each image gets a verdict: TRACK or REBUILD+REPLACE DUE. |
+| Threat intel | The CISA KEV feed is polled every 15 minutes. If a listed CVE matches a running image, the patcher starts immediately. |
+| Automated remediation | kaniko rebuilds the image inside the cluster with the fix applied, commits the new tag, and ArgoCD rolls it out behind readiness gates. |
+| Backup and restore | A nightly `pg_dump` of the gateway database goes to an NFS pool (7 kept) and an offsite VPS (14 kept). I restored it into a scratch database and checked the result. |
+| Load balancing and TLS | MetalLB in L2 mode, Traefik ingress, cert-manager with Let's Encrypt. |
+| Least privilege | The patcher and the analyst have RBAC roles that cannot touch workloads. Their only way to change anything is a git commit. |
+| AI analyst with an audit trail | A model chain (Claude, Gemini, Codex, OpenCode, in failover order) reviews unusual events and records its reasoning in a versioned playbook. It has no cluster credentials. |
 
-The last row is the one I'm proudest of. When PHP2Shell (two critical PHP
-RCEs) was exploited in the wild **four days before the fix was released**,
-and working exploits appeared within hours of the patch, my cluster already
-had the loop that answers that: scan, verdict, rebuild, roll out, publish
-the evidence. It caught that its own first patch was incomplete — the
-vulnerable copies were vendored inside setuptools, one directory deeper than
-my fix — and the correction is on the public page.
+The last row is the one I would point an interviewer to. In October 2026 two
+critical PHP remote-code-execution bugs (PHP2Shell) were exploited in the
+wild four days before a fix existed. Working exploits showed up within hours
+of the patch. This cluster already had a loop for that situation: scan, give
+a verdict, rebuild, roll out, publish. It also caught a mistake in its own
+first patch. The vulnerable copies were vendored inside setuptools, one
+directory below where my fix looked. The correction is on the public page.
 
-## Where it stands (2026-11-05)
+## Current state (2026-11-20)
 
-- 4 nodes Ready, k3s v1.36 on arm64, ~$400 of hardware, $0 of cloud
-- ArgoCD v3.6.1 manages its own config and the workloads (app-of-apps)
-- Hourly CVE scans, CISA KEV polled every 15 minutes
-- One real advisory-driven patch completed end-to-end: `v2 → v20261104-2332`
-- MetalLB L2 pool, Traefik ingress with Let's Encrypt certs
-- Offsite backups: nightly dump, offsite copy, rehearsed restore
-- Home Assistant runs as a container on the cluster
-- The status page and every scan verdict: published by the cluster itself
+- 5 nodes Ready, k3s v1.36.5 on arm64, no cloud spend
+- Control plane on cluster1, an 8 GB Pi. I moved it there from a smaller
+  node by swapping SD cards, and kept the old card as the rollback.
+- ArgoCD manages its own config and every workload below
+- Hourly CVE scans, KEV poll every 15 minutes
+- One advisory-driven patch has gone end to end: `v2` to `v20261104-2332`
+- Home Assistant and its voice stack (Whisper, Piper, openWakeWord, a
+  Wyoming satellite) run on cluster5, with a Mosquitto MQTT broker that
+  also receives health data from devices outside the cluster
+- Nightly database backup, offsite copy, tested restore
+- The status page and every scan verdict are generated by the cluster
+
+One known issue: the `argocd-config` app currently reports Degraded. The
+ArgoCD UI certificate failed to renew because the hostname in the repo is a
+placeholder that Let's Encrypt rejects. The existing certificate is valid
+until 2027-02-02, so nothing is down. I haven't fixed it yet.
 
 ## Architecture
 
@@ -47,85 +57,105 @@ my fix — and the correction is on the public page.
                  ┌─────────────────────────────────────────────┐
                  │            k3s v1.36 (arm64)                │
   git push ───▶  │  ArgoCD ──▶ apps: desktop fleet, gateway,   │
-  (main branch)  │             Home Assistant, patch pipeline  │
+  (main branch)  │     Home Assistant, Libertas, patch pipeline│
                  ├─────────────────────────────────────────────┤
-                 │  MetalLB .244-.250 → Traefik ingress + TLS  │
+                 │  MetalLB L2 pool → Traefik ingress + TLS    │
                  │  in-cluster registry (kaniko targets)       │
                  │  NFS storage pool (dynamic provisioning)    │
                  │  Guacamole desktop gateway (8 desktops)     │
-                 │  Grafana Cloud observability (no new SaaS)  │
+                 │  Mosquitto MQTT broker                      │
+                 │  Grafana Cloud observability (free tier)    │
                  └─────────────────────────────────────────────┘
-                   cluster1        cluster2   cluster3   cluster4
-                   192.168.86.188  .132       .251       .128
+        cluster1 (control plane, 8 GB)  cluster2  cluster3  cluster4  cluster5
+        192.168.86.188                  .132      .251      .128      .182
 ```
+
+`main` is protected against force pushes and deletion, because ArgoCD
+deploys whatever is on it.
+
+## Hardware and lab
+
+| Item | Detail |
+|---|---|
+| Nodes | 5 x Raspberry Pi 4 Model B: cluster1 is 8 GB (control plane), the other four are 4 GB |
+| Storage | Two 234 GB SSDs on cluster4 form the NFS pool that backs dynamic provisioning |
+| Network | Static addresses for every node, MetalLB pool for service IPs, LAN-only exposure |
+| Outside the cluster | A Pi 5 runs radio decoding and logging, with its OS on an SD card and its data on an SSD |
+
+Things I maintain by hand, not through git: physical layout and cabling,
+SD card replacement, USB and power troubleshooting, and clean shutdown
+before moving anything.
+
+- [Runbook: a Pi's SD card is failing](docs/runbook-failed-sd-card.md),
+  from a real recovery, including the cause of the USB drive dropouts I
+  traced along the way.
 
 ## Repo layout
 
 ```
 apps/<name>/base/            workload manifests (kustomize)
 apps/desktop-gate/backup/    the offsite backup CronJob
+apps/home-assistant/base/    Home Assistant, Mosquitto, voice services
+docs/                        runbooks
 infrastructure/patch-pipeline/
-  base/                      scan, actuator, publisher CronJobs (ArgoCD-synced)
-  recipes/                   image build recipes + the scripts they bake in
-  agent/                     the analyst: model chain + playbook
-infrastructure/argocd/       AppProject (source/destination RBAC), Applications
+  base/                      scan, actuator and publisher CronJobs (ArgoCD-synced)
+  recipes/                   image build recipes and the scripts baked into them
+  agent/                     the analyst: model chain and playbook
+infrastructure/argocd/       AppProject (source and destination RBAC), Applications
 infrastructure/metallb/      the LAN address pool
 infrastructure/registry/     the in-cluster registry
-infrastructure/monitoring/   alloy + Grafana dashboard
+infrastructure/monitoring/   alloy config and Grafana dashboard
 ```
 
 ## The self-patching pipeline
 
 ```
-CVE intelligence (trivy DB, auto-refreshed hourly)
-   → CISA KEV polled every 15 minutes (fast path: match = patch now)
+CVE data (trivy DB, refreshed hourly)
+   → CISA KEV polled every 15 minutes (a match means patch now)
    → scan of every image in the in-cluster registry
-   → verdict: unpatchable-upstream (track) | fixable>0 (REBUILD+REPLACE DUE)
-   → kaniko in-cluster arm64 rebuild (Debian + pip fixes baked at build)
-   → new tag committed to git by a least-privilege ServiceAccount
-   → ArgoCD rolls the fleet behind readiness gates
-   → evidence written to the storage pool, published to the status page
+   → verdict: unpatchable upstream (track) | fixable > 0 (REBUILD+REPLACE DUE)
+   → kaniko rebuilds the arm64 image in-cluster with the fix baked in
+   → a least-privilege ServiceAccount commits the new tag to git
+   → ArgoCD rolls the fleet out behind readiness gates
+   → evidence is written to the storage pool and published to the status page
 ```
 
-### Why the urgency — the PHP2Shell timeline, compared
+### How it compares on PHP2Shell
 
-In October 2026 two critical PHP remote-code-execution bugs (nicknamed
-PHP2Shell) went from leak to mass exploitation in about a day. The real
-timeline: exploitation in the wild **four days before any fix existed**
-(honeypot telemetry, Oct 17), attacks observed the morning of patch day,
-working exploits within hours of the 14:00 UTC release, CISA listing five
-days later — and a week on, about half of modern PHP sites were still
-unpatched. Under 1% of legacy sites ever moved.
+The real timeline: exploitation in the wild started four days before any fix
+(honeypot data, Oct 17). Attacks were seen the morning of patch day, working
+exploits appeared within hours of the 14:00 UTC release, and CISA added the
+bugs five days later. A week on, about half of modern PHP sites were still
+unpatched.
 
-A network running this setup would have been on a different clock, measured
-tonight on a real advisory: the hourly scan flags the running image within an
-hour of the fix hitting the trivy database, the actuator rebuilds and commits
-the new tag in about five minutes, and ArgoCD finishes the rollout behind
-readiness gates inside ten. Patched the same afternoon, with the evidence on
-the status page.
+I measured this pipeline on a real advisory. The hourly scan flagged the
+running image within an hour of the fix reaching the trivy database. The
+actuator rebuilt and committed the new tag in about five minutes. ArgoCD
+finished the rollout in under ten. That is a same-afternoon patch with the
+evidence published.
 
-Two honest limits. Exploitation before a fix exists is not a patching
-problem — exposure control is, and this cluster's answer is LAN-only with one
-watched door. And the pipeline is deliberately distro- and
-language-agnostic: the CVEs it tracked tonight were in Python packaging
-tools, one of which survived my first fix by hiding inside setuptools'
-vendored copies. The scanner caught that. That's the part I like most.
+Two limits. Exploitation before a fix exists is not a patching problem. It is
+an exposure problem, and my answer is a LAN-only cluster with one watched
+entry point. Second, the CVEs I tracked that night were in Python packaging
+tools, not PHP. The pipeline doesn't depend on the language or the distro,
+but I haven't run a PHP advisory through it.
 
-### The honest part
+### What failed
 
-The first rebuild tonight didn't actually clear the CVEs. The scanner caught
-it: the vulnerable copies were vendored inside setuptools itself, one
-directory deeper than my fix. Recipe v4 upgrades setuptools too. I kept the
-failed attempt in the patch timeline on purpose — a scanner that can't tell
-you your patch didn't work is worse than no scanner.
+The first rebuild did not clear the CVEs. The scanner caught it, because the
+vulnerable copies sat inside setuptools' own vendored packages. Recipe v4
+upgrades setuptools as well. I left the failed attempt in the patch timeline
+on purpose. A scanner that can't tell you a patch didn't work is worse than
+having no scanner.
 
 ## Guardrails
 
-- Nothing exposed off-LAN; load balancer and NodePorts are LAN-only by design.
-- $0 recurring cloud cost — anything that costs money needs a human OK.
-- k3s upgrades and major version bumps are manually gated.
-- Secrets never enter this repo: deploy keys and credentials are applied
-  out-of-band. The analyst's model tokens live on the workstation, not here.
-- The analyst agent has no cluster credentials. Its only write path is a git
-  commit, and its reasoning is recorded in the playbook next to the code.
-- Clean shutdown before any physical power movement.
+- Nothing is exposed off the LAN. The load balancer and NodePorts are
+  LAN-only by design.
+- Anything that costs recurring money needs a human to approve it.
+- k3s upgrades and major version bumps are manual.
+- Secrets never go in this repo. Deploy keys and credentials are applied
+  out-of-band, and the analyst's model tokens stay on my workstation.
+- The analyst has no cluster credentials. It can only write a git commit, and
+  its reasoning is recorded in the playbook next to the code.
+- I shut nodes down cleanly before any physical power change.
