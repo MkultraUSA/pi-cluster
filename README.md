@@ -73,12 +73,30 @@ until 2027-02-02, so nothing is down. I haven't fixed it yet.
 `main` is protected against force pushes and deletion, because ArgoCD
 deploys whatever is on it.
 
+## Hardware and lab
+
+| Item | Detail |
+|---|---|
+| Nodes | 5 x Raspberry Pi 4 Model B: cluster1 is 8 GB (control plane), the other four are 4 GB |
+| Storage | Two 234 GB SSDs on cluster4 form the NFS pool that backs dynamic provisioning |
+| Network | Static addresses for every node, MetalLB pool for service IPs, LAN-only exposure |
+| Outside the cluster | A Pi 5 runs radio decoding and logging, with its OS on an SD card and its data on an SSD |
+
+Things I maintain by hand, not through git: physical layout and cabling,
+SD card replacement, USB and power troubleshooting, and clean shutdown
+before moving anything.
+
+- [Runbook: a Pi's SD card is failing](docs/runbook-failed-sd-card.md),
+  from a real recovery, including the cause of the USB drive dropouts I
+  traced along the way.
+
 ## Repo layout
 
 ```
 apps/<name>/base/            workload manifests (kustomize)
 apps/desktop-gate/backup/    the offsite backup CronJob
 apps/home-assistant/base/    Home Assistant, Mosquitto, voice services
+docs/                        runbooks
 infrastructure/patch-pipeline/
   base/                      scan, actuator and publisher CronJobs (ArgoCD-synced)
   recipes/                   image build recipes and the scripts baked into them
